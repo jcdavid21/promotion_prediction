@@ -1,0 +1,170 @@
+/* Dashboard Header */
+.dashboard-header {
+    background-color: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    margin-bottom: 20px;
+    margin-left: 0; /* Ensure no extra margin */
+}
+
+/* Cards */
+.card {
+    border: none;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    transition: transform 0.3s;
+    height: 100%;
+    margin-bottom: 20px; /* Add margin between cards */
+}
+
+
+.skill-ratings{
+    height: 457px;
+    overflow-y: auto;
+}
+
+.card-header {
+    background-color: var(--primary-color);
+    color: white;
+    border-top-left-radius: 8px !important;
+    border-top-right-radius: 8px !important;
+    font-weight: 500;
+}
+
+/* Stat Cards */
+.stat-card {
+    text-align: center;
+    padding: 20px;
+}
+
+.stat-icon {
+    font-size: 2rem;
+    margin-bottom: 10px;
+    color: var(--accent-color);
+}
+
+.stat-value {
+    font-size: 1.8rem;
+    font-weight: 700;
+    margin-bottom: 5px;
+}
+
+.stat-label {
+    font-size: 0.9rem;
+    color: #7f8c8d;
+}
+
+/* Progress Bars */
+.progress {
+    height: 10px;
+    border-radius: 5px;
+    margin-bottom: 10px;
+}
+
+/* Metric Labels */
+.metric-label {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 5px;
+    font-size: 0.85rem;
+}
+
+/* Evaluation Breakdown */
+.evaluation-breakdown {
+    padding: 15px;
+}
+
+/* Attendance Indicator */
+.attendance-indicator {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    margin-right: 5px;
+}
+
+/* Highlight and Lowlight Boxes */
+.highlight-box {
+    background-color: rgba(52, 152, 219, 0.1);
+    border-left: 4px solid var(--accent-color);
+    padding: 10px 15px;
+    border-radius: 4px;
+    margin-top: 10px;
+}
+
+.lowlight-box {
+    background-color: rgba(231, 76, 60, 0.1);
+    border-left: 4px solid var(--danger-color);
+    padding: 10px 15px;
+    border-radius: 4px;
+    margin-top: 10px;
+}
+
+/* Tables */
+.table-responsive {
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    overflow: hidden;
+    margin-bottom: 20px; /* Add margin below tables */
+}
+
+.summary-table th {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+/* Employee Selector */
+.employee-selector {
+    padding: 10px 15px;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+    background-color: white;
+    width: 100%;
+    margin-bottom: 20px; /* Add margin below the selector */
+}
+
+/* Attendance Box */
+.attendance-box {
+    padding: 15px;
+    border: 1px solid #eee;
+    border-radius: 8px;
+    margin-top: 10px;
+}
+
+.empDiv .modal-body .row th{
+    font-weight: 500 !important;
+}
+
+.attendance-metric {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #eee;
+}
+
+.attendance-metric:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+/* Badges */
+.badge-performance {
+    padding: 5px 10px;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .content-wrapper {
+        margin-left: 0; /* Remove margin when sidebar is collapsed */
+    }
+
+    .dashboard-header, .card, .table-responsive, .employee-selector {
+        margin-left: 0; /* Ensure no extra margin on smaller screens */
+    }
+}

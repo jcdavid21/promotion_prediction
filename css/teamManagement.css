@@ -1,0 +1,189 @@
+/* Base Styles */
+.org-chart {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+    padding: 20px;
+}
+
+.employee-card {
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+    border-left: 4px solid var(--department-color, #0d6efd); /* Default color */
+    padding: 1.25rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.employee-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+}
+
+/* Department Badge - Enhanced */
+.department-badge {
+    font-size: 0.7rem;
+    font-weight: 400;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    padding: 0.35rem 0.75rem;
+    border-radius: 50px;
+    background: linear-gradient(135deg, var(--department-color, #6c757d) 0%, var(--department-color-dark, #495057) 100%);
+    color: white;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+
+/* Department-specific colors */
+.department-badge[data-dept="HR"] {
+    --department-color: #6f42c1;
+    --department-color-dark: #5a32a3;
+}
+
+.department-badge[data-dept="IT"] {
+    --department-color: #20c997;
+    --department-color-dark: #17a07b;
+}
+
+.department-badge[data-dept="Finance"] {
+    --department-color: #fd7e14;
+    --department-color-dark: #e36209;
+}
+
+.department-badge[data-dept="Marketing"] {
+    --department-color: #d63384;
+    --department-color-dark: #b02a6f;
+}
+
+.department-badge[data-dept="Operations"] {
+    --department-color: #0dcaf0;
+    --department-color-dark: #0aa2c0;
+}
+
+/* Status Badges */
+.employee-status {
+    font-size: 0.7rem;
+    font-weight: 400;
+    padding: 0.35rem 0.75rem;
+    border-radius: 50px;
+    display: inline-block;
+}
+
+.status-regular { 
+    background-color: #d1e7dd; 
+    color: #0f5132;
+    border: 1px solid rgba(15, 81, 50, 0.2);
+}
+
+.status-probi { 
+    background-color: #fff3cd; 
+    color: #664d03;
+    border: 1px solid rgba(102, 77, 3, 0.2);
+}
+
+.status-seasonal { 
+    background-color: #e7f1ff; 
+    color: #084298;
+    border: 1px solid rgba(8, 66, 152, 0.2);
+}
+
+/* Action Buttons */
+.action-buttons {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.action-buttons .btn {
+    padding: 0.4rem 0.6rem;
+    font-size: 0.8rem;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.action-buttons .btn:hover {
+    transform: scale(1.1);
+}
+
+/* Employee Info */
+.employee-card h6 {
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: #212529;
+}
+
+.employee-card small.text-muted {
+    font-size: 0.8rem;
+    color: #6c757d;
+}
+
+/* Pagination */
+.pagination-container {
+    margin-top: 2rem;
+    display: flex;
+    justify-content: center;
+}
+
+.page-item.active .page-link {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+
+.page-link {
+    color: #0d6efd;
+}
+
+/* Filter Section */
+#departmentFilter, #statusFilter {
+    border-radius: 8px;
+    padding: 0.5rem 1rem;
+    border: 1px solid #dee2e6;
+}
+
+/* Search Input */
+#searchInput {
+    border-radius: 8px 0 0 8px;
+    border-right: none;
+}
+
+#searchBtn {
+    border-radius: 0 8px 8px 0;
+    border-left: none;
+}
+
+/* Modal Enhancements */
+.modal-header {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.modal-footer {
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+/* Tab Navigation */
+.nav-tabs .nav-link {
+    border: none;
+    color: #6c757d;
+    font-weight: 500;
+    padding: 0.75rem 1.25rem;
+}
+
+.nav-tabs .nav-link.active {
+    color: #0d6efd;
+    border-bottom: 3px solid #0d6efd;
+    background: transparent;
+}
+
+#empTenure {
+    background-color: #f8f9fa;
+    cursor: not-allowed;
+}   

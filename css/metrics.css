@@ -1,0 +1,248 @@
+/* General Styling */
+.main-content {
+    padding: 20px;
+    transition: margin-left 0.3s;
+}
+
+@media (max-width: 992px) {
+    .main-content {
+        margin-left: 0;
+    }
+}
+
+/* Card Styling */
+.card {
+    border-radius: 0.5rem;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    transition: transform 0.3s, box-shadow 0.3s;
+    border: none;
+}
+
+.card:hover {
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.card-header {
+    border-radius: 0.5rem 0.5rem 0 0 !important;
+    padding: 1rem 1.25rem;
+}
+
+/* Chart Containers */
+.chart-container {
+    position: relative;
+    height: 250px;
+    margin-bottom: 1rem;
+}
+
+/* Progress Bars */
+.progress {
+    height: 10px;
+}
+
+.progress-bar {
+    transition: width 1s ease-in-out;
+}
+
+/* Badges */
+.badge {
+    font-size: 0.8rem;
+    font-weight: 500;
+    padding: 0.35em 0.65em;
+}
+
+/* Form Elements */
+.form-select, .form-control {
+    border-radius: 0.375rem;
+    padding: 0.375rem 0.75rem;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .chart-container {
+        height: 200px;
+    }
+}
+
+/* Add to metrics.css */
+.skill-label {
+    font-weight: 500;
+}
+
+.progress {
+    height: 1.25rem;
+    margin-top: 0.25rem;
+}
+
+.progress-bar {
+    font-size: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+}
+
+.badge {
+    min-width: 2.5em;
+    font-size: 0.9em;
+}
+
+.search-container {
+    position: relative;
+    margin-bottom: 20px;
+}
+.search-container i {
+    position: absolute;
+    left: 10px;
+    top: 10px;
+    color: #6c757d;
+}
+.search-container input {
+    padding-left: 35px;
+}
+.employee-info-badge {
+    font-size: 0.9rem;
+    padding: 8px 12px;
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    color: #495057;
+}
+
+/* Custom styling for promotion analysis */
+.promotion-card {
+    border-radius: 10px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    border: none;
+    transition: transform 0.3s ease;
+}
+
+.promotion-card:hover {
+    transform: translateY(-5px);
+}
+
+.card-header-custom {
+    border-radius: 10px 10px 0 0 !important;
+    padding: 1rem 1.5rem;
+}
+
+.progress-container {
+    height: 30px;
+    border-radius: 15px;
+    background-color: #f0f3f5;
+}
+
+.progress-bar-custom {
+    border-radius: 15px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.detail-card {
+    border-left: 4px solid;
+    border-radius: 8px;
+}
+
+.detail-card.attendance {
+    border-left-color: #28a745;
+}
+
+.detail-card.discipline {
+    border-left-color: #ffc107;
+}
+
+.detail-card.performance {
+    border-left-color: #17a2b8;
+}
+
+.shap-plot-container {
+    border-radius: 8px;
+    background: #f8f9fa;
+    padding: 15px;
+}
+
+.employee-badge {
+    background-color: #e9ecef;
+    border-radius: 20px;
+    padding: 5px 15px;
+    font-size: 0.9rem;
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(0, 123, 255, 0.05);
+}
+
+.promotion-highlight {
+    background-color: rgba(40, 167, 69, 0.1) !important;
+}
+
+/* Add this to your CSS file or style section */
+.progress-container {
+    height: 10px;
+    background-color: #f0f3f5;
+    border-radius: 5px;
+    margin-bottom: 5px;
+}
+
+.progress-bar-custom {
+    height: 100%;
+    border-radius: 5px;
+    transition: width 0.6s ease;
+}
+
+/* Specific colors for each category */
+.progress-bar-custom.bg-success {
+    background-color: #28a745 !important;
+}
+
+.progress-bar-custom.bg-warning {
+    background-color: #ffc107 !important;
+}
+
+.progress-bar-custom.bg-info {
+    background-color: #17a2b8 !important;
+}
+
+/* Adjust the progress bar container in the detail cards */
+.detail-card .progress-container {
+    width: 100%;
+    margin-right: 10px;
+}
+
+.detail-card .card-body {
+    padding: 1rem;
+}
+
+.detail-card .row > div {
+    margin-bottom: 0.5rem;
+}
+
+.criteria-card {
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+    transition: transform 0.3s;
+}
+.criteria-card:hover {
+    transform: translateY(-5px);
+}
+.card-header {
+    border-radius: 10px 10px 0 0 !important;
+    font-weight: 600;
+}
+.rating-scale {
+    border-left: 4px solid #0d6efd;
+    padding-left: 15px;
+}
+.table-responsive {
+    max-height: 400px;
+    overflow-y: auto;
+}
+.badge-scale {
+    font-size: 0.8em;
+    padding: 5px 8px;
+    margin-right: 5px;
+}
+.section-title {
+    border-bottom: 2px solid #dee2e6;
+    padding-bottom: 8px;
+    margin-bottom: 20px;
+}
