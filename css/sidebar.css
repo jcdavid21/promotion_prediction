@@ -222,21 +222,3 @@ body.sidebar-collapsed {
     min-height: 100vh;
     transition: margin-left 0.3s;
 }
-
-@media (max-width: 768px) {
-    body {
-        margin-left: 0;
-    }
-    
-    .sidebar {
-        left: -280px;
-    }
-    
-    .sidebar.mobile-active {
-        left: 0;
-    }
-    
-    body.sidebar-collapsed {
-        margin-left: 0;
-    }
-}

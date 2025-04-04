@@ -10,6 +10,33 @@
     <!-- Font Awesome -->
     <link rel="stylesheet" href="../css/sidebar.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @media (max-width: 768px) {
+            .sidebar {
+                left: -270px;
+                transition: left 0.3s;
+            }
+            
+            .sidebar.mobile-active {
+                left: 0;
+            }
+            
+            body {
+                margin-left: 0 !important;
+            }
+            
+            .content-wrapper {
+                padding-top: 60px;
+            }
+            
+            .toggle-btn {
+                display: flex !important;
+                right: -15px;
+                top: 20px;
+                background-color: var(--accent-color);
+            }
+        }
+    </style>
 </head>
 
 <body>
@@ -22,6 +49,7 @@
     // Get current page filename
     $current_page = basename($_SERVER['PHP_SELF']);
     ?>
+    
     <div class="sidebar" id="sidebar">
         <div class="sidebar-header">
             <div class="sidebar-logo">
@@ -100,11 +128,6 @@
             </a>
 
             <div class="menu-category">Settings</div>
-            <!-- <a href="#" class="menu-item">
-                <i class="fas fa-question-circle"></i>
-                <span>Help & Support</span>
-            </a> -->
-
             <a href="./logout.php" class="menu-item <?php echo ($current_page == 'logout.php') ? 'active' : ''; ?>">
                 <i class="fa-solid fa-right-from-bracket"></i>
                 <span>Log out</span>
@@ -112,29 +135,60 @@
         </div>
     </div>
 
-
     <!-- Bootstrap JS and dependencies -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
     <script>
         // Toggle sidebar functionality
-        document.getElementById('toggle-sidebar').addEventListener('click', function() {
+        const toggleSidebar = () => {
             const sidebar = document.getElementById('sidebar');
-            sidebar.classList.toggle('collapsed');
-            document.body.classList.toggle('sidebar-collapsed');
-
-            const icon = this.querySelector('i');
-            if (icon.classList.contains('fa-chevron-left')) {
-                icon.classList.replace('fa-chevron-left', 'fa-chevron-right');
+            const icon = document.querySelector('#toggle-sidebar i');
+            
+            if (window.innerWidth <= 768) {
+                // Mobile behavior
+                sidebar.classList.toggle('mobile-active');
+                
+                if (sidebar.classList.contains('mobile-active')) {
+                    icon.classList.replace('fa-chevron-right', 'fa-chevron-left');
+                } else {
+                    icon.classList.replace('fa-chevron-left', 'fa-chevron-right');
+                }
             } else {
-                icon.classList.replace('fa-chevron-right', 'fa-chevron-left');
+                // Desktop behavior
+                sidebar.classList.toggle('collapsed');
+                document.body.classList.toggle('sidebar-collapsed');
+                
+                if (icon.classList.contains('fa-chevron-left')) {
+                    icon.classList.replace('fa-chevron-left', 'fa-chevron-right');
+                } else {
+                    icon.classList.replace('fa-chevron-right', 'fa-chevron-left');
+                }
+            }
+        };
+
+        document.getElementById('toggle-sidebar').addEventListener('click', toggleSidebar);
+
+        // Close sidebar when clicking outside on mobile
+        document.addEventListener('click', function(event) {
+            const sidebar = document.getElementById('sidebar');
+            const toggleBtn = document.getElementById('toggle-sidebar');
+            const isClickInsideSidebar = sidebar.contains(event.target);
+            const isClickOnToggleBtn = event.target === toggleBtn || toggleBtn.contains(event.target);
+            
+            if (window.innerWidth <= 768 && !isClickInsideSidebar && !isClickOnToggleBtn) {
+                sidebar.classList.remove('mobile-active');
+                document.querySelector('#toggle-sidebar i').classList.replace('fa-chevron-left', 'fa-chevron-right');
             }
         });
 
-        // Mobile menu toggle if you have a mobile toggle button
-        // Uncomment and modify if you have a mobile menu button
-        document.getElementById('mobile-toggle').addEventListener('click', function() {
-            document.getElementById('sidebar').classList.toggle('mobile-active');
+        // Handle window resize
+        window.addEventListener('resize', function() {
+            const sidebar = document.getElementById('sidebar');
+            if (window.innerWidth > 768) {
+                // Reset mobile state when resizing to desktop
+                sidebar.classList.remove('mobile-active');
+                document.querySelector('#toggle-sidebar i').classList.replace('fa-chevron-right', 'fa-chevron-left');
+            }
         });
     </script>
 
