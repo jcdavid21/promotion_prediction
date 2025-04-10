@@ -417,7 +417,7 @@ def get_promotion_predictions():
             
             current_iter += 1
             
-            # Add delay between iterations
+            # Add delay between iterations to simulate training time
             time.sleep(0.2)
         
         # Set the model back to the best iteration if we stopped early
