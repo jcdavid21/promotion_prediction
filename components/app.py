@@ -279,6 +279,7 @@ def preprocess_data(employee_data, categories, promotion_history):
 @app.route('/api/promotion_predictions', methods=['GET'])
 def get_promotion_predictions():
     try:
+        print("==== STARTING EMPLOYEE PROMOTION MODEL TRAINING ====")
         app.logger.info("Starting promotion predictions")
         
         categories = get_categories()
@@ -289,7 +290,9 @@ def get_promotion_predictions():
             app.logger.error("No employee data found")
             return jsonify({'success': False, 'error': 'No employee data found'}), 404
 
+        print(f"Data retrieved: {len(employee_data)} employee records")
         df = preprocess_data(employee_data, categories, promotion_history)
+        print(f"Preprocessed data shape: {df.shape}")
         
         features = [
             'administration', 'knowledge_of_work', 'quality_of_work', 'communication',
@@ -305,17 +308,140 @@ def get_promotion_predictions():
         X = df[features].fillna(0)
         y = df['promotion_flag']
         
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        print(f"Target distribution: {y.value_counts().to_dict()}")
         
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        print(f"Training set: {X_train.shape[0]} samples")
+        print(f"Test set: {X_test.shape[0]} samples")
+        
+        print("\n==== TRAINING MODEL ====")
+        import time
+        
+        # Let's go back to the simpler XGBClassifier approach but manually implement
+        # the iterations with delay
         model = xgb.XGBClassifier(
             objective='binary:logistic',
             random_state=42,
-            eval_metric='logloss'
+            eval_metric=['error', 'logloss'],
+            early_stopping_rounds=10
         )
-        model.fit(X_train, y_train)
+        
+        # Set up evaluation metrics to track
+        eval_set = [(X_train, y_train), (X_test, y_test)]
+        
+        # Print header for training progress
+        print("\nTraining Progress by Epoch:")
+        print("-" * 100)
+        print("Iter | Time  | Train Error | Test Error | Train Loss  | Test Loss   | Train Acc  | Test Acc   | Status")
+        print("-" * 100)
+        
+        # Initialize tracking for logging
+        start_time = time.time()
+        
+        # Get the number of estimators (trees) to build
+        n_estimators = model.get_params()['n_estimators']
+        if n_estimators is None or n_estimators <= 0:
+            n_estimators = 100  # Default value
+        
+        # Set a low value for n_estimators initially, then manually add more
+        model.set_params(n_estimators=1)
+        
+        # Perform the first fit to initialize the model
+        model.fit(X_train, y_train, eval_set=eval_set, verbose=False)
+        
+        current_iter = 1
+        best_score = float('inf')
+        best_iter = 0
+        no_improvement = 0
+        early_stopping_rounds = 10
+        
+        # Function to calculate accuracy manually
+        def calculate_accuracy(model, X, y):
+            y_pred = model.predict(X)
+            return accuracy_score(y, y_pred)
+        
+        # Now incrementally add more trees with delays
+        while current_iter < n_estimators:
+            iter_start = time.time()
+            
+            # Add one more tree
+            model.n_estimators += 1
+            model.fit(X_train, y_train, eval_set=eval_set, verbose=False, xgb_model=model.get_booster())
+            
+            # Get current scores
+            results = model.evals_result()
+            
+            # Calculate accuracies
+            train_accuracy = calculate_accuracy(model, X_train, y_train)
+            test_accuracy = calculate_accuracy(model, X_test, y_test)
+            
+            # Check if results dictionary has the expected structure
+            if results and 'validation_0' in results:
+                # Extract metrics
+                train_error = results['validation_1']['error'][-1] if 'error' in results['validation_1'] else None
+                test_error = results['validation_0']['error'][-1] if 'error' in results['validation_0'] else None
+                train_logloss = results['validation_1']['logloss'][-1] if 'logloss' in results['validation_1'] else None
+                test_logloss = results['validation_0']['logloss'][-1] if 'logloss' in results['validation_0'] else None
+                
+                # For early stopping, use test logloss
+                current_score = test_logloss if test_logloss is not None else float('inf')
+                
+                # Early stopping check
+                if current_score < best_score:
+                    best_score = current_score
+                    best_iter = current_iter
+                    no_improvement = 0
+                    status = "Improved"
+                else:
+                    no_improvement += 1
+                    status = f"No improvement ({no_improvement}/{early_stopping_rounds})"
+                
+                # Print progress with all metrics
+                iter_time = time.time() - iter_start
+                print(f"{current_iter:4d} | {iter_time:5.2f}s | "
+                      f"{train_error:.6f} | {test_error:.6f} | "
+                      f"{train_logloss:.6f} | {test_logloss:.6f} | "
+                      f"{train_accuracy:.6f} | {test_accuracy:.6f} | {status}")
+                
+                # Check for early stopping
+                if no_improvement >= early_stopping_rounds:
+                    print(f"\nEarly stopping at iteration {current_iter} (best was {best_iter})")
+                    break
+            else:
+                # If we can't access the evaluation results properly, just print progress
+                iter_time = time.time() - iter_start
+                print(f"{current_iter:4d} | {iter_time:5.2f}s | "
+                      f"------- | ------- | "
+                      f"------- | ------- | "
+                      f"{train_accuracy:.6f} | {test_accuracy:.6f} | Completed")
+            
+            current_iter += 1
+            
+            # Add delay between iterations
+            time.sleep(0.2)
+        
+        # Set the model back to the best iteration if we stopped early
+        if no_improvement >= early_stopping_rounds and best_iter < current_iter:
+            print(f"Reverting to best iteration: {best_iter}")
+            model.n_estimators = best_iter
+        
+        # Print model evaluation
+        y_pred = model.predict(X_test)
+        print("\n==== MODEL EVALUATION ====")
+        print(f"Accuracy: {accuracy_score(y_test, y_pred):.4f}")
+        print(f"Precision: {precision_score(y_test, y_pred):.4f}")
+        print(f"Recall: {recall_score(y_test, y_pred):.4f}")
+        print(f"F1 Score: {f1_score(y_test, y_pred):.4f}")
+        
+        print("\n==== TOP FEATURE IMPORTANCE ====")
+        importance = model.feature_importances_
+        indices = np.argsort(importance)[::-1]
+        for i in range(min(10, len(features))):
+            print(f"{features[indices[i]]}: {importance[indices[i]]:.4f}")
         
         df['promotion_probability'] = model.predict_proba(X)[:, 1]
         
+        print("\n==== CALCULATING SHAP VALUES ====")
         explainer = shap.Explainer(model)
         shap_values = explainer(X)
         
@@ -377,6 +503,9 @@ def get_promotion_predictions():
             'avg_time_between_promotions': float(df[df['promotion_count'] > 1]['days_since_promotion'].mean()) if not df[df['promotion_count'] > 1].empty else None
         }
 
+        print("\n==== MODEL TRAINING COMPLETE ====")
+        print(f"Total training time: {time.time() - start_time:.2f} seconds")
+        
         response = {
             'success': True,
             'data': results,
@@ -388,6 +517,8 @@ def get_promotion_predictions():
 
     except Exception as e:
         app.logger.error(f"Error in promotion predictions: {str(e)}\n{traceback.format_exc()}")
+        print(f"ERROR: {str(e)}")
+        print(traceback.format_exc())
         return jsonify({
             'success': False,
             'error': str(e),
