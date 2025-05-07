@@ -118,6 +118,10 @@
                 <i class="fas fa-users-cog"></i>
                 <span>Team Management</span>
             </a>
+            <a href="./terminatedEmp.php" class="menu-item <?php echo ($current_page == 'employeeManagement.php') ? 'active' : ''; ?>">
+                <i class="fas fa-users-slash"></i>
+                <span>Terminated Employees</span>
+            </a>
             <a href="./evaluation.php" class="menu-item <?php echo ($current_page == 'evaluation.php') ? 'active' : ''; ?>">
                 <i class="fas fa-user-cog"></i>
                 <span>Evaluation</span>

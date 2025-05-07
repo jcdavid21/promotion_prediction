@@ -418,7 +418,7 @@ def get_promotion_predictions():
             current_iter += 1
             
             # Add delay between iterations to simulate training time
-            time.sleep(0.2)
+            time.sleep(0.01)
         
         # Set the model back to the best iteration if we stopped early
         if no_improvement >= early_stopping_rounds and best_iter < current_iter:
@@ -768,6 +768,72 @@ def get_employees():
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+    
+@app.route('/api/insert_employees', methods=['POST'])
+def insert_employee():
+    try:
+        # Get employee data from request JSON
+        data = request.json
+        
+        # Validate required fields
+        required_fields = ['emp_name', 'department', 'position', 'start_date']
+        for field in required_fields:
+            if field not in data or not data[field]:
+                return jsonify({'error': f'Field {field} is required'}), 400
+        
+        # Connect to database
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor()
+        
+        # Insert query with all possible fields
+        query = """
+        INSERT INTO tbl_employee_details (
+            emp_name, 
+            age, 
+            gender, 
+            emp_status, 
+            department, 
+            position, 
+            start_date, 
+            regularization,
+            active_status
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """
+        
+        # Prepare parameters
+        params = [
+            data.get('emp_name'),
+            data.get('age') if data.get('age') else None,
+            data.get('gender', 'M'),
+            data.get('emp_status', 'PROBI'),  # Default to PROBI status for new employees
+            data.get('department'),
+            data.get('position'),
+            data.get('start_date'),
+            data.get('regularization'),
+            1  # active_status is set to 1 (active) by default
+        ]
+        
+        # Execute query
+        cursor.execute(query, params)
+        
+        # Get the newly inserted employee ID
+        emp_id = cursor.lastrowid
+        
+        # Commit the transaction
+        conn.commit()
+        
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            'message': 'Employee added successfully',
+            'emp_id': emp_id
+        }), 201
+        
+    except mysql.connector.Error as db_err:
+        return jsonify({'error': f'Database error: {str(db_err)}'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/employees/<int:emp_id>', methods=['PUT'])
 def update_employee(emp_id):
@@ -832,6 +898,13 @@ def delete_employee(emp_id):
         cursor = conn.cursor()
         
         cursor.execute("UPDATE tbl_employee_details SET active_status = 2 WHERE emp_id = %s", (emp_id,))
+
+        # update end_date to current asia date
+        cursor.execute("UPDATE tbl_employee_details SET end_date = NOW() WHERE emp_id = %s", (emp_id,))
+        # update emp_status to inactive
+        cursor.execute("UPDATE tbl_employee_details SET emp_status = 'INACTIVE' WHERE emp_id = %s", (emp_id,))
+
+
         conn.commit()
         
         cursor.close()
@@ -999,6 +1072,208 @@ def get_employee_evaluation(emp_id):
     finally:
         cursor.close()
         conn.close()
+
+
+# ----------------------------
+
+
+# Add these functions to your existing app.py file
+
+@app.route('/api/terminated', methods=['GET'])
+def get_terminated_employees():
+    try:
+        # Get pagination and filter parameters from request
+        page = request.args.get('page', default=1, type=int)
+        per_page = request.args.get('per_page', default=10, type=int)
+        department = request.args.get('department', default=None)
+        search = request.args.get('search', default=None)
+        deletion_status = request.args.get('deletion_status', default=None)
+        
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor(dictionary=True)
+        
+        # Base query for terminated employees
+        query = """
+        SELECT e.*, d.dept_name, p.position_name 
+        FROM tbl_employee_details e
+        LEFT JOIN tbl_department d ON e.department = d.dept_id
+        LEFT JOIN tbl_positions p ON e.position = p.position_id
+        WHERE e.active_status = 2
+        """
+        
+        params = []
+        
+        # Add filters
+        if department:
+            query += " AND e.department = %s"
+            params.append(department)
+        if search:
+            query += " AND (e.emp_name LIKE %s OR p.position_name LIKE %s OR d.dept_name LIKE %s)"
+            params.extend([f"%{search}%", f"%{search}%", f"%{search}%"])
+        
+        # Filter by deletion status
+        if deletion_status:
+            from datetime import datetime, timedelta
+            today = datetime.now()
+            
+            if deletion_status == 'pending':
+                # Employees whose deletion date is within 30 days
+                query += """ AND e.end_date IS NOT NULL 
+                            AND DATE_ADD(e.end_date, INTERVAL 5 MONTH) <= DATE_ADD(CURDATE(), INTERVAL 30 DAY)
+                            AND DATE_ADD(e.end_date, INTERVAL 5 MONTH) >= CURDATE()
+                         """
+            elif deletion_status == 'recent':
+                # Employees terminated within the last 30 days
+                query += " AND e.end_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)"
+        
+        # Add sorting - recently terminated first
+        query += " ORDER BY e.end_date DESC"
+        
+        # Add pagination
+        query += " LIMIT %s OFFSET %s"
+        offset = (page - 1) * per_page
+        params.extend([per_page, offset])
+        
+        cursor.execute(query, params)
+        employees = cursor.fetchall()
+        
+        # Get total count for pagination
+        count_query = "SELECT COUNT(*) as total FROM tbl_employee_details e WHERE e.active_status = 2"
+        count_params = []
+        
+        if department:
+            count_query += " AND e.department = %s"
+            count_params.append(department)
+        if search:
+            count_query += " AND (e.emp_name LIKE %s OR e.position IN (SELECT position_id FROM tbl_positions WHERE position_name LIKE %s) OR e.department IN (SELECT dept_id FROM tbl_department WHERE dept_name LIKE %s))"
+            count_params.extend([f"%{search}%", f"%{search}%", f"%{search}%"])
+            
+        # Add deletion status filter to count query
+        if deletion_status:
+            if deletion_status == 'pending':
+                count_query += """ AND e.end_date IS NOT NULL 
+                                AND DATE_ADD(e.end_date, INTERVAL 5 MONTH) <= DATE_ADD(CURDATE(), INTERVAL 30 DAY)
+                                AND DATE_ADD(e.end_date, INTERVAL 5 MONTH) >= CURDATE()
+                              """
+            elif deletion_status == 'recent':
+                count_query += " AND e.end_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)"
+        
+        cursor.execute(count_query, count_params)
+        total = cursor.fetchone()['total']
+        
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            'employees': employees,
+            'total': total,
+            'page': page,
+            'per_page': per_page
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/terminated/<int:emp_id>', methods=['GET'])
+def get_terminated_employee(emp_id):
+    try:
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor(dictionary=True)
+        
+        query = """
+        SELECT e.*, d.dept_name, p.position_name
+        FROM tbl_employee_details e
+        LEFT JOIN tbl_department d ON e.department = d.dept_id
+        LEFT JOIN tbl_positions p ON e.position = p.position_id
+        WHERE e.emp_id = %s AND e.active_status = 2
+        """
+        
+        cursor.execute(query, (emp_id,))
+        employee = cursor.fetchone()
+        
+        if not employee:
+            return jsonify({'error': 'Employee not found'}), 404
+        
+        cursor.close()
+        conn.close()
+        
+        return jsonify(employee)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/terminated/<int:emp_id>/delete', methods=['DELETE'])
+def permanently_delete_employee(emp_id):
+    try:
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor()
+        
+        # First get employee record to check if it exists
+        cursor.execute("SELECT * FROM tbl_employee_details WHERE emp_id = %s AND active_status = 2", (emp_id,))
+        employee = cursor.fetchone()
+        
+        if not employee:
+            cursor.close()
+            conn.close()
+            return jsonify({'error': 'Employee not found or not terminated'}), 404
+        
+        # Delete related records first (you might need to adjust these based on your database schema)
+        # These are typical tables that might have related employee data
+        try:
+            cursor.execute("DELETE FROM tbl_evaluation WHERE emp_id = %s", (emp_id,))
+            cursor.execute("DELETE FROM tbl_promotion_history WHERE emp_id = %s", (emp_id,))
+            cursor.execute("DELETE FROM tbl_eval_attendance WHERE emp_id = %s", (emp_id,))
+            
+            # Get evaluation IDs to delete related records
+            cursor.execute("SELECT eval_id FROM tbl_eval_attendance WHERE emp_id = %s", (emp_id,))
+            eval_ids = cursor.fetchall()
+            
+            if eval_ids:
+                for eval_id in eval_ids:
+                    cursor.execute("DELETE FROM tbl_eval_discipline WHERE eval_id = %s", (eval_id[0],))
+                    cursor.execute("DELETE FROM tbl_eval_others WHERE eval_id = %s", (eval_id[0],))
+        except Exception as e:
+            # If there's an error deleting related records, log it but continue
+            print(f"Error deleting related records for employee {emp_id}: {str(e)}")
+        
+        # Finally delete the employee record
+        cursor.execute("DELETE FROM tbl_employee_details WHERE emp_id = %s", (emp_id,))
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        return jsonify({'success': True, 'message': 'Employee record permanently deleted'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/terminated/<int:emp_id>/retain', methods=['PUT'])
+def retain_employee(emp_id):
+    try:
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor()
+        
+        # Mark employee for retention by adding a flag in the database
+        # This example adds a 'retention_flag' field - you'll need to add this column to your table
+        query = """
+        UPDATE tbl_employee_details 
+        SET retention_flag = 1
+        WHERE emp_id = %s AND active_status = 2
+        """
+        
+        cursor.execute(query, (emp_id,))
+        conn.commit()
+        
+        # Check if any rows were affected
+        if cursor.rowcount == 0:
+            cursor.close()
+            conn.close()
+            return jsonify({'error': 'Employee not found or not terminated'}), 404
+        
+        cursor.close()
+        conn.close()
+        return jsonify({'success': True, 'message': 'Employee marked for retention'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+#---------------------
 
 @app.route('/api/evaluation/calculate', methods=['POST'])
 def calculate_evaluation():
