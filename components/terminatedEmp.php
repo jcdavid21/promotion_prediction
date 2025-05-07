@@ -1,5 +1,4 @@
 <?php
-session_start();
 if (!isset($_SESSION["acc_id"])) {
     header("Location: ../index.php");
 }
@@ -90,6 +89,10 @@ if (!isset($_SESSION["acc_id"])) {
 
 <body>
     <?php include 'sidebar.php'; ?>
+
+    <?php  if(session_status() == PHP_SESSION_NONE) {
+        session_start();
+    } ?>
 
     <div class="content-wrapper">
         <div class="container-fluid">
