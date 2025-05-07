@@ -3,6 +3,7 @@ const itemsPerPage = 10;
 let totalEmployees = 0;
 let currentEmployeeId = null;
 const API_URL = 'http://localhost:8800';
+let startDateChangeListener = null;
 
 // DOM Elements
 const elements = {
@@ -34,12 +35,15 @@ const elements = {
 };
 
 
-// Initialize the application
+// Make sure to connect the Add New Member button to the prepareAddForm function
 document.addEventListener('DOMContentLoaded', () => {
     loadEmployees();
     loadDepartments();
     loadPositions();
     setupEventListeners();
+    
+    // Add this line to connect the Add Employee button to the prepareAddForm function
+    document.getElementById('addEmployeeBtn').addEventListener('click', prepareAddForm);
 });
 
 function setupEventListeners() {
@@ -292,17 +296,58 @@ async function loadPositions() {
 
 function prepareAddForm() {
     elements.formModalTitle.textContent = 'Add New Employee';
+    
+    // First, remove any existing event listener
+    if (startDateChangeListener) {
+        elements.startDate.removeEventListener('change', startDateChangeListener);
+        startDateChangeListener = null;
+    }
+    
+    // Reset the form
     elements.employeeForm.reset();
     elements.empId.value = '';
+    
+    // Set default values
+    elements.empStatus.value = 'PROBI'; // New employees typically start as probationary
+    elements.empGender.value = 'M';
+    
+    // Set today's date as default start date
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    elements.startDate.value = `${year}-${month}-${day}`;
+    
+    // Clear tenure field
+    elements.empTenure.value = '';
+    
+    // Add new event listener for start date changes
+    startDateChangeListener = () => {
+        elements.empTenure.value = calculateTenure(elements.startDate.value);
+    };
+    elements.startDate.addEventListener('change', startDateChangeListener);
+    
+    // Initialize tenure based on today's date
+    elements.empTenure.value = calculateTenure(elements.startDate.value);
+    
     elements.employeeFormModal.show();
 }
 
+// Modified prepareEditForm function
 async function prepareEditForm(empId) {
     try {
         const response = await fetch(`${API_URL}/api/employees/${empId}`);
         const employee = await response.json();
 
         elements.formModalTitle.textContent = 'Edit Employee';
+        
+        // First, remove any existing event listener
+        if (startDateChangeListener) {
+            elements.startDate.removeEventListener('change', startDateChangeListener);
+            startDateChangeListener = null;
+        }
+        
+        // Set form values
         elements.empId.value = employee.emp_id;
         elements.empName.value = employee.emp_name;
         elements.empAge.value = employee.age || '';
@@ -311,17 +356,18 @@ async function prepareEditForm(empId) {
         elements.empDepartment.value = employee.department || '';
         elements.empPosition.value = employee.position || '';
 
+        // Format dates for the input fields
+        elements.startDate.value = formatDateForInput(employee.start_date);
+        elements.regularizationDate.value = formatDateForInput(employee.regularization);
+        
         // Calculate and set tenure automatically
         elements.empTenure.value = calculateTenure(employee.start_date);
 
         // Add event listener to update tenure when start date changes
-        elements.startDate.addEventListener('change', () => {
+        startDateChangeListener = () => {
             elements.empTenure.value = calculateTenure(elements.startDate.value);
-        });
-
-        // Format dates for the input fields
-        elements.startDate.value = formatDateForInput(employee.start_date);
-        elements.regularizationDate.value = formatDateForInput(employee.regularization);
+        };
+        elements.startDate.addEventListener('change', startDateChangeListener);
 
         elements.employeeFormModal.show();
 
@@ -330,6 +376,7 @@ async function prepareEditForm(empId) {
         alert('Failed to load employee data for editing. Please try again.');
     }
 }
+
 
 function formatDateForInput(dateString) {
     if (!dateString) return '';
@@ -382,26 +429,50 @@ function editEmployee() {
     }
 }
 
+// Fix for the saveEmployee function
 async function saveEmployee() {
+    // Validate required fields
+    if (!elements.empName.value) {
+        alert('Employee name is required!');
+        return;
+    }
+    if (!elements.empDepartment.value) {
+        alert('Department is required!');
+        return;
+    }
+    if (!elements.empPosition.value) {
+        alert('Position is required!');
+        return;
+    }
+    if (!elements.startDate.value) {
+        alert('Start date is required!');
+        return;
+    }
+
     const employeeData = {
-        emp_id: elements.empId.value || null,
         emp_name: elements.empName.value,
-        age: elements.empAge.value,
+        age: elements.empAge.value || null,
         gender: elements.empGender.value,
         emp_status: elements.empStatus.value,
         department: elements.empDepartment.value,
         position: elements.empPosition.value,
         start_date: elements.startDate.value,
-        regularization: elements.regularizationDate.value,
-        tenure: elements.empTenure.value || null
+        regularization: elements.regularizationDate.value || null
     };
 
     try {
-        const url = employeeData.emp_id ?
-            `${API_URL}/api/employees/${employeeData.emp_id}` :
-            `${API_URL}/api/employees`;
-
-        const method = employeeData.emp_id ? 'PUT' : 'POST';
+        let url, method;
+        
+        if (elements.empId.value) {
+            // Update existing employee
+            url = `${API_URL}/api/employees/${elements.empId.value}`;
+            method = 'PUT';
+            employeeData.emp_id = elements.empId.value;
+        } else {
+            // Add new employee
+            url = `${API_URL}/api/insert_employees`;
+            method = 'POST';
+        }
 
         const response = await fetch(url, {
             method: method,
@@ -470,7 +541,7 @@ function calculateTenure(startDate) {
 
 function confirmDelete(empId) {
     currentEmployeeId = empId;
-    elements.confirmMessage.textContent = 'Are you sure you want to delete this employee?';
+    elements.confirmMessage.textContent = 'Are you sure you want to terminate this employee?';
     elements.confirmActionBtn.className = 'btn btn-danger';
     elements.confirmActionBtn.textContent = 'Delete';
     elements.confirmActionBtn.onclick = deleteEmployee;
@@ -490,7 +561,7 @@ async function deleteEmployee() {
 
         elements.confirmModal.hide();
         await loadEmployees(currentPage);
-        alert('Employee deleted successfully!');
+        alert('Employee terminated successfully!');
     } catch (error) {
         console.error('Error deleting employee:', error);
         alert(`Failed to delete employee: ${error.message}`);
