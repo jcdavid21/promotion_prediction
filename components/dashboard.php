@@ -91,17 +91,7 @@
                 <div class="col-md-8">
                     <h2><i class="fas fa-chart-line me-2 text-primary"></i> i-PROMOTE Employee Evaluation Overview</h2>
                     <p class="text-muted">Comprehensive analysis of employee performance metrics and attendance data</p>
-                </div>
-                <div class="col-md-4">
-                    <select id="employeeSelector" class="form-select">
-                        <option value="0">Select Employee</option>
-                        <?php foreach($employee_data as $emp_id => $employee): ?>
-                            <option value="<?php echo $emp_id; ?>">
-                                <?php echo htmlspecialchars($employee['emp_name']); ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
+    </div>
             </div>
         </div>
         
