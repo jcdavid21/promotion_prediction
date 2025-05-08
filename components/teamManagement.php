@@ -1,8 +1,20 @@
-<?php  if(session_status() == PHP_SESSION_NONE) {
+<?php
+if (session_status() == PHP_SESSION_NONE) {
     session_start();
-} ?>
+}
+
+// Check if user is logged in, redirect if not
+if (!isset($_SESSION["acc_id"])) {
+    header("Location: login.php");
+    exit;
+}
+
+// Include database connection
+require_once "../backend/config.php";
+?>
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,18 +24,60 @@
     <link rel="stylesheet" href="../css/teamManagement.css">
     <link rel="stylesheet" href="../css/general.css">
 </head>
+
 <body>
     <div class="container-fluid">
-    <?php require "sidebar.php"; ?>
+        <?php require "sidebar.php"; ?>
+        
+        <?php
+        // Check if user is admin (position_id = 1)
+        $isAdmin = (isset($_SESSION["position_id"]) && $_SESSION["position_id"] == 1) ? true : false;
+        
+        // Get admin PIN if user is admin
+        $pin = "";
+        if ($isAdmin) {
+            $query = "SELECT * FROM tbl_pin WHERE acc_id = ?";
+            $stmt = $conn->prepare($query);
+            $stmt->bind_param("i", $_SESSION["acc_id"]);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            if ($row = $result->fetch_assoc()) {
+                $pin = $row["pin_pass"];
+            }
+        }
+        ?>
+        
+        <!-- Hidden input to store admin status -->
+        <input type="hidden" id="isAdmin" value="<?php echo $isAdmin ? '1' : '0'; ?>">
+        
+        <?php
+        // Display success or error messages if they exist
+        if (isset($_SESSION['success_message'])) {
+            echo '<div class="alert alert-success alert-dismissible fade show" role="alert">
+                ' . $_SESSION['success_message'] . '
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>';
+            unset($_SESSION['success_message']);
+        }
+        
+        if (isset($_SESSION['error_message'])) {
+            echo '<div class="alert alert-danger alert-dismissible fade show" role="alert">
+                ' . $_SESSION['error_message'] . '
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>';
+            unset($_SESSION['error_message']);
+        }
+        ?>
+
         <div class="row">
             <div class="col-md-3 bg-light p-4">
                 <h4 class="mb-4">Team Management</h4>
                 <div class="mb-4">
-                    <button class="btn btn-primary w-100" id="addEmployeeBtn" data-bs-toggle="modal" data-bs-target="#employeeFormModal">
+                    <button class="btn btn-primary w-100" id="addEmployeeBtn">
                         <i class="fas fa-plus me-2"></i>Add New Member
                     </button>
                 </div>
-                
+
                 <h5 class="mt-4">Filters</h5>
                 <div class="mb-3">
                     <label class="form-label">Department</label>
@@ -31,7 +85,7 @@
                         <option value="">All Departments</option>
                     </select>
                 </div>
-                
+
                 <div class="mb-3">
                     <label class="form-label">Status</label>
                     <select class="form-select" id="statusFilter">
@@ -150,7 +204,7 @@
                             <h4 id="detailEmpName"></h4>
                             <div class="mb-3">
                                 <span class="badge rounded-pill" id="detailEmpStatus"
-                                style="color: rgb(90, 90, 90)"></span>
+                                    style="color: rgb(90, 90, 90)"></span>
                             </div>
                             <div class="mb-2"><strong>Department:</strong> <span id="detailDept"></span></div>
                             <div class="mb-2"><strong>Position:</strong> <span id="detailPosition"></span></div>
@@ -161,9 +215,6 @@
                                 <li class="nav-item">
                                     <a class="nav-link active" data-bs-toggle="tab" href="#details">Details</a>
                                 </li>
-                                <!-- <li class="nav-item">
-                                    <a class="nav-link" data-bs-toggle="tab" href="#performance">Performance</a>
-                                </li> -->
                                 <li class="nav-item">
                                     <a class="nav-link" data-bs-toggle="tab" href="#history">History</a>
                                 </li>
@@ -181,9 +232,6 @@
                                             <p><strong>Regularization Date:</strong><br> <span id="detailRegDate"></span></p>
                                         </div>
                                     </div>
-                                </div>
-                                <div class="tab-pane" id="performance">
-                                    <canvas id="performanceChart"></canvas>
                                 </div>
                                 <div class="tab-pane" id="history">
                                     <table class="table">
@@ -230,8 +278,32 @@
         </div>
     </div>
 
+    <!-- PIN Verification Modal -->
+    <div class="modal fade" id="pinVerificationModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Admin Verification Required</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Please enter your admin PIN to proceed with employee termination:</p>
+                    <div class="mb-3">
+                        <input type="password" class="form-control" id="pinInput" placeholder="Enter PIN" maxlength="6">
+                        <div class="text-danger mt-2" id="pinError" style="display: none;"></div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="verifyPinBtn">Verify</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="../js/teamManagement.js"></script>
 </body>
+
 </html>
