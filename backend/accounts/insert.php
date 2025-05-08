@@ -1,10 +1,10 @@
 <?php
     require_once("../config.php");
-    $username = "admin";
-    $password = "admin";
+    $username = "admin2";
+    $password = "admin2";
 
     $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
-    $sql_query = "INSERT INTO tbl_account (username, password, position_id) VALUES (?, ?, 1)";
+    $sql_query = "INSERT INTO tbl_account (username, password, position_id) VALUES (?, ?, 2)";
     $stmt = $conn->prepare($sql_query);
     $stmt->bind_param("ss", $username, $hashedPassword);
     $stmt->execute();

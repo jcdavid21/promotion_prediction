@@ -4,6 +4,7 @@ let totalEmployees = 0;
 let currentEmployeeId = null;
 const API_URL = 'http://localhost:8800';
 let startDateChangeListener = null;
+let userPositionId = null; // Store the user's position ID
 
 // DOM Elements
 const elements = {
@@ -31,12 +32,20 @@ const elements = {
     employeeModal: new bootstrap.Modal(document.getElementById('employeeModal')),
     confirmModal: new bootstrap.Modal(document.getElementById('confirmModal')),
     confirmMessage: document.getElementById('confirmMessage'),
-    confirmActionBtn: document.getElementById('confirmActionBtn')
+    confirmActionBtn: document.getElementById('confirmActionBtn'),
+    pinVerificationModal: new bootstrap.Modal(document.getElementById('pinVerificationModal')),
+    pinInput: document.getElementById('pinInput'),
+    pinError: document.getElementById('pinError'),
+    verifyPinBtn: document.getElementById('verifyPinBtn')
 };
 
 
 // Make sure to connect the Add New Member button to the prepareAddForm function
 document.addEventListener('DOMContentLoaded', () => {
+    // Get the user's position ID from the hidden input
+    const isAdminElement = document.getElementById('isAdmin');
+    userPositionId = isAdminElement ? (isAdminElement.value === '1' ? 1 : 2) : 2;
+    
     loadEmployees();
     loadDepartments();
     loadPositions();
@@ -55,6 +64,13 @@ function setupEventListeners() {
     });
     elements.saveEmployeeBtn.addEventListener('click', saveEmployee);
     elements.editEmployeeBtn.addEventListener('click', editEmployee);
+    elements.verifyPinBtn.addEventListener('click', verifyPinAndDelete);
+    
+    // Clear PIN input and error message when modal is closed
+    document.getElementById('pinVerificationModal').addEventListener('hidden.bs.modal', () => {
+        elements.pinInput.value = '';
+        elements.pinError.style.display = 'none';
+    });
 }
 
 async function loadEmployees(page = 1) {
@@ -106,16 +122,22 @@ function renderOrgChart(employees) {
                     <button class="btn btn-sm btn-outline-secondary edit-employee" data-id="${emp.emp_id}">
                         <i class="fas fa-edit"></i>
                     </button>
+                    ${userPositionId === 1 ? `
                     <button class="btn btn-sm btn-outline-danger delete-employee" data-id="${emp.emp_id}">
                         <i class="fas fa-trash"></i>
-                    </button>
+                    </button>` : ''}
                 </div>
             </div>
         `;
 
         card.querySelector('.view-detail').addEventListener('click', () => showEmployeeDetail(emp.emp_id));
         card.querySelector('.edit-employee').addEventListener('click', () => prepareEditForm(emp.emp_id));
-        card.querySelector('.delete-employee').addEventListener('click', () => confirmDelete(emp.emp_id));
+        
+        // Only add delete event listener if the button exists (admin only)
+        const deleteBtn = card.querySelector('.delete-employee');
+        if (deleteBtn) {
+            deleteBtn.addEventListener('click', () => confirmDelete(emp.emp_id));
+        }
 
         elements.orgChartContainer.appendChild(card);
     });
@@ -237,6 +259,10 @@ async function showEmployeeDetail(empId) {
         } else {
             historyTable.innerHTML = '<tr><td colspan="4" class="text-center">No promotion history</td></tr>';
         }
+
+        // Show or hide the edit button based on user role
+        const editBtn = document.getElementById('editEmployeeBtn');
+        editBtn.style.display = 'block'; // Everyone can edit
 
         // Show the modal
         elements.employeeModal.show();
@@ -540,18 +566,82 @@ function calculateTenure(startDate) {
 }
 
 function confirmDelete(empId) {
+    // FIXED: Check if user is admin before proceeding
+    if (userPositionId !== 1) {
+        alert('You do not have permission to delete employees.');
+        return;
+    }
+    
     currentEmployeeId = empId;
-    elements.confirmMessage.textContent = 'Are you sure you want to terminate this employee?';
-    elements.confirmActionBtn.className = 'btn btn-danger';
-    elements.confirmActionBtn.textContent = 'Delete';
-    elements.confirmActionBtn.onclick = deleteEmployee;
-    elements.confirmModal.show();
+    
+    // Show PIN verification modal for admins
+    elements.pinVerificationModal.show();
+}
+
+function verifyPinAndDelete() {
+    // FIXED: Double-check that the user is an admin
+    if (userPositionId !== 1) {
+        elements.pinVerificationModal.hide();
+        alert('You do not have permission to delete employees.');
+        return;
+    }
+    
+    const pin = elements.pinInput.value.trim();
+    
+    if (!pin) {
+        elements.pinError.textContent = 'PIN is required!';
+        elements.pinError.style.display = 'block';
+        return;
+    }
+    
+    // Create a form to submit via POST
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = 'verify_pin.php';
+    form.style.display = 'none';
+    
+    // Add PIN and employee ID inputs
+    const pinInput = document.createElement('input');
+    pinInput.type = 'hidden';
+    pinInput.name = 'pin';
+    pinInput.value = pin;
+    
+    const empIdInput = document.createElement('input');
+    empIdInput.type = 'hidden';
+    empIdInput.name = 'emp_id';
+    empIdInput.value = currentEmployeeId;
+    
+    // Add a return URL input
+    const returnUrlInput = document.createElement('input');
+    returnUrlInput.type = 'hidden';
+    returnUrlInput.name = 'return_url';
+    returnUrlInput.value = window.location.href;
+    
+    // Append inputs to form
+    form.appendChild(pinInput);
+    form.appendChild(empIdInput);
+    form.appendChild(returnUrlInput);
+    
+    // Append form to document and submit
+    document.body.appendChild(form);
+    form.submit();
 }
 
 async function deleteEmployee() {
+    // This function is now only called from the confirmation modal
+    // and should never be directly accessible to non-admins
     try {
+        // FIXED: Add an additional server-side check before performing deletion
+        if (userPositionId !== 1) {
+            alert('You do not have permission to delete employees.');
+            return;
+        }
+        
         const response = await fetch(`${API_URL}/api/employees/${currentEmployeeId}`, {
-            method: 'DELETE'
+            method: 'DELETE',
+            headers: {
+                'X-Admin-Position': userPositionId.toString() // Send position ID to API for verification
+            }
         });
 
         if (!response.ok) {

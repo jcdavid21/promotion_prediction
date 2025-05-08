@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost
--- Generation Time: Mar 28, 2025 at 05:15 PM
+-- Generation Time: May 08, 2025 at 04:27 PM
 -- Server version: 10.4.28-MariaDB
 -- PHP Version: 8.0.28
 
@@ -162,7 +162,8 @@ CREATE TABLE `tbl_account` (
 --
 
 INSERT INTO `tbl_account` (`acc_id`, `username`, `password`, `position_id`) VALUES
-(1, 'admin', '$2y$10$hylp5tJfzmNt0s2KzpM/geq4KfqK6GKAYVjPckyDZ8erHFULe5Hru', 1);
+(1, 'admin', '$2y$10$hylp5tJfzmNt0s2KzpM/geq4KfqK6GKAYVjPckyDZ8erHFULe5Hru', 1),
+(2, 'admin2', '$2y$10$X2HRV59x8KkB0spANBeD8O0Fr.SyPU.2sUk4jON07KdkfMHtHr/oe', 2);
 
 -- --------------------------------------------------------
 
@@ -185,7 +186,8 @@ CREATE TABLE `tbl_account_details` (
 --
 
 INSERT INTO `tbl_account_details` (`id`, `acc_id`, `first_name`, `middle_name`, `last_name`, `contact`, `address`) VALUES
-(1, 1, 'Christoper', '', 'Licuanan', '09565535401', 'Cielito Homes');
+(1, 1, 'Christoper', '', 'Licuanan', '09565535401', 'Cielito Homes'),
+(2, 2, 'Jc', '', 'David', '09565535401', 'Cielito Homes');
 
 -- --------------------------------------------------------
 
@@ -238,8 +240,8 @@ CREATE TABLE `tbl_employee_details` (
 --
 
 INSERT INTO `tbl_employee_details` (`emp_id`, `emp_name`, `age`, `gender`, `status`, `start_date`, `regularization`, `end_date`, `exit_reason`, `emp_status`, `tenure`, `position`, `department`, `active_status`) VALUES
-(1, 'ZAPANTA JR, ROBERTO', 31, 'M', 'SINGLE', '2019-10-15', '2020-04-12', NULL, NULL, 'REGULAR', '5 Years, 5 Months, 13 Days', 9, 5, 1),
-(2, 'VILLAVERDE, JEN JEN', 30, 'F', 'MARRIED', '2015-11-02', '2016-04-30', NULL, NULL, 'REGULAR', '9 Years, 4 Months and 2 Days', 10, 1, 1),
+(1, 'ZAPANTA JR, ROBERTO', 31, 'M', 'SINGLE', '2019-10-15', '2020-04-12', '2025-04-28', NULL, 'INACTIVE', '5 Years, 5 Months, 13 Days', 9, 5, 2),
+(2, 'VILLAVERDE, JEN JEN', 30, 'F', 'MARRIED', '2015-11-02', '2016-04-30', NULL, NULL, 'REGULAR', '9 Years, 6 Months, 5 Days', 10, 1, 1),
 (3, 'TUAZON, GLAIZY BENZ', 27, 'F', 'SINGLE', '2024-11-20', '2025-05-19', NULL, NULL, 'PROBI', '0 Years, 3 Months and 12 Days', 2, 2, 1),
 (4, 'TABOADA, MA. ROSARIO', 47, 'F', 'MARRIED', '2016-02-22', '2016-08-20', NULL, NULL, 'REGULAR', '9 Years, 0 Months and 10 Days', 15, 4, 1),
 (5, 'TABANGAY, EDDIE JR.', 35, 'M', 'SINGLE', '2021-07-23', '2022-01-19', NULL, NULL, 'REGULAR', '3 Years, 7 Months and 9 Days', 2, 2, 1),
@@ -312,7 +314,9 @@ INSERT INTO `tbl_employee_details` (`emp_id`, `emp_name`, `age`, `gender`, `stat
 (72, 'QUINTOS, LORENZO MIGUEL', 27, 'M', 'SINGLE', '2023-04-17', '2023-10-14', NULL, NULL, 'REGULAR', '1 Years, 11 Months and 15 Days', 15, 4, 1),
 (73, 'REYES, ISABELLA SOPHIA', 30, 'F', 'SINGLE', '2020-12-01', '2021-05-30', NULL, NULL, 'REGULAR', '4 Years, 4 Months and 2 Days', 18, 1, 1),
 (74, 'SANTOS, DIEGO ALEJANDRO', 32, 'M', 'SINGLE', '2019-07-19', '2020-01-15', NULL, NULL, 'REGULAR', '5 Years, 8 Months and 13 Days', 7, 1, 1),
-(75, 'VALDEZ, CAMILLE ANNE', 25, 'F', 'SINGLE', '2024-02-10', '2024-08-08', NULL, NULL, 'PROBI', '1 Years, 1 Months and 22 Days', 3, 2, 1);
+(75, 'VALDEZ, CAMILLE ANNE', 25, 'F', 'SINGLE', '2024-02-10', '2024-08-08', NULL, NULL, 'PROBI', '1 Years, 1 Months and 22 Days', 3, 2, 1),
+(76, 'jc', 24, 'M', NULL, '2025-05-07', NULL, '2025-05-08', NULL, 'INACTIVE', NULL, 1, 2, 2),
+(77, 'Josh', 24, 'M', NULL, '2025-05-07', NULL, '2025-05-07', NULL, 'INACTIVE', NULL, 1, 2, 2);
 
 -- --------------------------------------------------------
 
@@ -742,6 +746,25 @@ INSERT INTO `tbl_eval_standing` (`standing_id`, `standing_name`) VALUES
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `tbl_pin`
+--
+
+CREATE TABLE `tbl_pin` (
+  `pin_id` int(11) NOT NULL,
+  `acc_Id` int(11) NOT NULL,
+  `pin_pass` int(11) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `tbl_pin`
+--
+
+INSERT INTO `tbl_pin` (`pin_id`, `acc_Id`, `pin_pass`) VALUES
+(1, 1, 1234);
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `tbl_positions`
 --
 
@@ -906,6 +929,12 @@ ALTER TABLE `tbl_eval_standing`
   ADD PRIMARY KEY (`standing_id`);
 
 --
+-- Indexes for table `tbl_pin`
+--
+ALTER TABLE `tbl_pin`
+  ADD PRIMARY KEY (`pin_id`);
+
+--
 -- Indexes for table `tbl_positions`
 --
 ALTER TABLE `tbl_positions`
@@ -954,13 +983,13 @@ ALTER TABLE `Tardiness_Rating`
 -- AUTO_INCREMENT for table `tbl_account`
 --
 ALTER TABLE `tbl_account`
-  MODIFY `acc_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `acc_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT for table `tbl_account_details`
 --
 ALTER TABLE `tbl_account_details`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT for table `tbl_department`
@@ -972,7 +1001,7 @@ ALTER TABLE `tbl_department`
 -- AUTO_INCREMENT for table `tbl_employee_details`
 --
 ALTER TABLE `tbl_employee_details`
-  MODIFY `emp_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=76;
+  MODIFY `emp_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=78;
 
 --
 -- AUTO_INCREMENT for table `tbl_emp_status`
@@ -1009,6 +1038,12 @@ ALTER TABLE `tbl_eval_others`
 --
 ALTER TABLE `tbl_eval_standing`
   MODIFY `standing_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+
+--
+-- AUTO_INCREMENT for table `tbl_pin`
+--
+ALTER TABLE `tbl_pin`
+  MODIFY `pin_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT for table `tbl_positions`

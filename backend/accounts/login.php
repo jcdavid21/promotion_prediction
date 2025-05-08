@@ -27,6 +27,7 @@
                 $_SESSION["full_name"] = $user["full_name"];
                 $_SESSION["position"] = $user["position_name"];
                 $_SESSION["acc_id"] = $user["acc_id"];
+                $_SESSION["position_id"] = $user["position_id"];
                 echo "success";
             } else {
                 echo "failed"; // Wrong password
