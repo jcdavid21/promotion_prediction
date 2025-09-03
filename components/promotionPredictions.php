@@ -1,4 +1,4 @@
-<?php  if(session_status() == PHP_SESSION_NONE) {
+<?php if (session_status() == PHP_SESSION_NONE) {
     session_start();
 } ?>
 <!DOCTYPE html>
@@ -104,7 +104,12 @@
                     <div class="modal-content">
                         <div class="modal-header bg-primary text-white">
                             <h5 class="modal-title"><i class="fas fa-chart-pie me-2"></i>Promotion Factors Analysis</h5>
-                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                            <div class="d-flex">
+                                <button type="button" class="btn btn-light btn-sm me-2" id="print-report-btn">
+                                    <i class="fas fa-print me-1"></i>Print Report
+                                </button>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
                         </div>
                         <div class="modal-body">
                             <div class="row mb-4">

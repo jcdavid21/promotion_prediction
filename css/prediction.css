@@ -230,3 +230,44 @@
         border: none;
     }
 }
+
+@media print {
+    body * {
+        visibility: hidden;
+    }
+    
+    .print-content, .print-content * {
+        visibility: visible;
+    }
+    
+    .print-content {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+    }
+    
+    .modal-header .btn, .modal-footer {
+        display: none !important;
+    }
+    
+    .modal-dialog {
+        max-width: 100% !important;
+        margin: 0 !important;
+    }
+    
+    .modal-content {
+        border: none !important;
+        box-shadow: none !important;
+    }
+    
+    .card {
+        break-inside: avoid;
+        margin-bottom: 10px;
+    }
+    
+    .timeline-item {
+        break-inside: avoid;
+        margin-bottom: 15px;
+    }
+}

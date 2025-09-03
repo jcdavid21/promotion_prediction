@@ -2,39 +2,42 @@ let employeeDataTable = null;
 let currentEmployeeData = [];
 let currentThreshold = 0;
 let allEmployeeData = [];
+let currentEmployee = null; // Add this line
 
-$(document).ready(function() {
+$(document).ready(function () {
     initializeDataTable();
     loadPromotionPredictions();
 
-    $('#refresh-btn').click(function() {
+    $('#refresh-btn').click(function () {
         loadPromotionPredictions();
     });
 
-    $('#promotion-filter').change(function() {
+    $('#promotion-filter').change(function () {
         applyPromotionFilter();
     });
 
-    $('#promotionTable').on('click', '.view-details', function() {
+    $('#promotionTable').on('click', '.view-details', function () {
         const empId = $(this).data('id');
         const employee = allEmployeeData.find(e => e.emp_id == empId);
         if (employee) {
+            currentEmployee = employee; // Add this line
             showShapDetails(employee);
         }
     });
 });
 
+
 function applyPromotionFilter() {
     const filterValue = $('#promotion-filter').val();
     let filteredData = [...allEmployeeData];
 
-    switch(filterValue) {
+    switch (filterValue) {
         case 'promoted':
-            filteredData = allEmployeeData.filter(e => 
+            filteredData = allEmployeeData.filter(e =>
                 e.promotion_history && e.promotion_history.length > 0);
             break;
         case 'not-promoted':
-            filteredData = allEmployeeData.filter(e => 
+            filteredData = allEmployeeData.filter(e =>
                 !e.promotion_history || e.promotion_history.length === 0);
             break;
         case 'recently-promoted':
@@ -47,7 +50,7 @@ function applyPromotionFilter() {
             });
             break;
         case 'frequent-promotions':
-            filteredData = allEmployeeData.filter(e => 
+            filteredData = allEmployeeData.filter(e =>
                 e.promotion_history && e.promotion_history.length >= 3);
             break;
         // 'all' case falls through to default
@@ -62,9 +65,9 @@ function refreshDataTable() {
         employeeDataTable.clear();
         if (currentEmployeeData.length > 0) {
             employeeDataTable.rows.add(currentEmployeeData).draw();
-            
+
             // Reapply highlighting
-            employeeDataTable.rows().every(function() {
+            employeeDataTable.rows().every(function () {
                 const data = this.data();
                 if (parseFloat(data.total_score) >= currentThreshold) {
                     $(this.node()).addClass('table-success');
@@ -79,14 +82,14 @@ function refreshDataTable() {
 function initializeDataTable() {
     employeeDataTable = $('#promotionTable').DataTable({
         columns: [
-            { 
-                title: "Employee", 
+            {
+                title: "Employee",
                 data: "emp_name",
-                render: function(data, type, row) {
+                render: function (data, type, row) {
                     const promoCount = row.promotion_history ? row.promotion_history.length : 0;
                     if (type === 'display') {
-                        return promoCount > 0 ? 
-                            `${data} <span class="badge bg-primary ms-2">${promoCount} promo${promoCount !== 1 ? 's' : ''}</span>` : 
+                        return promoCount > 0 ?
+                            `${data} <span class="badge bg-primary ms-2">${promoCount} promo${promoCount !== 1 ? 's' : ''}</span>` :
                             data;
                     }
                     return data;
@@ -94,17 +97,17 @@ function initializeDataTable() {
             },
             { title: "Position", data: "position" },
             { title: "Department", data: "department" },
-            { 
-                title: "Score", 
+            {
+                title: "Score",
                 data: "total_score",
-                render: function(data) {
+                render: function (data) {
                     return data ? parseFloat(data).toFixed(2) : 'N/A';
                 }
             },
-            { 
-                title: "Promotion Probability", 
+            {
+                title: "Promotion Probability",
                 data: "promotion_probability",
-                render: function(data) {
+                render: function (data) {
                     if (data === undefined || data === null) return 'N/A';
                     const percent = (parseFloat(data) * 100).toFixed(1);
                     const color = data >= 0.7 ? 'success' : data >= 0.4 ? 'warning' : 'danger';
@@ -124,7 +127,7 @@ function initializeDataTable() {
             {
                 title: "Actions",
                 data: null,
-                render: function(data, type, row) {
+                render: function (data, type, row) {
                     const promoCount = row.promotion_history ? row.promotion_history.length : 0;
                     return `
                         <button class="btn btn-sm btn-info view-details" 
@@ -152,31 +155,31 @@ function initializeDataTable() {
 
 function loadPromotionPredictions() {
     showLoading();
-    
+
     $.ajax({
         url: 'http://localhost:8800/api/promotion_predictions',
         type: 'GET',
         dataType: 'json',
-        success: function(response) {
+        success: function (response) {
             hideLoading();
-            
+
             if (response && response.success) {
                 allEmployeeData = response.data || [];
                 currentEmployeeData = [...allEmployeeData]; // Start with all data
                 currentThreshold = response.threshold ? parseFloat(response.threshold) : 0;
-                
+
                 if (isNaN(currentThreshold)) {
                     currentThreshold = 0;
                     console.warn("Invalid threshold value received, defaulting to 0");
                 }
-                
+
                 // Initialize or refresh table
                 if (!employeeDataTable) {
                     initializeDataTable();
                 } else {
                     refreshDataTable();
                 }
-                
+
                 // Apply any active filter
                 applyPromotionFilter();
             } else {
@@ -184,17 +187,17 @@ function loadPromotionPredictions() {
                 showError('Failed to load predictions: ' + errorMsg);
             }
         },
-        error: function(xhr, status, error) {
+        error: function (xhr, status, error) {
             hideLoading();
             let errorMsg = error;
-            
+
             try {
                 const errResponse = JSON.parse(xhr.responseText);
                 errorMsg = errResponse.error || errorMsg;
             } catch (e) {
                 console.error("Error parsing error response:", e);
             }
-            
+
             showError('Failed to connect: ' + errorMsg);
         }
     });
@@ -203,12 +206,12 @@ function loadPromotionPredictions() {
 
 function showShapDetails(employee) {
     if (!employee) return;
-    
+
     // Update basic info
     $('#employee-name').text(employee.emp_name || 'N/A');
     $('#employee-position').text(employee.position || 'N/A');
     $('#employee-department').text(employee.department || 'N/A');
-    
+
     // Update metrics
     updateAttendanceProgress(
         employee.details?.attendance?.score,
@@ -224,13 +227,13 @@ function showShapDetails(employee) {
         employee.details?.performance?.score,
         employee.details?.performance?.total
     );
-    
+
     // Handle SHAP plot
     renderShapPlot(employee.shap_explanation);
-    
+
     // Render promotion history timeline
     renderPromotionHistory(employee.promotion_history);
-    
+
     // Show modal
     $('#shapModal').modal('show');
 }
@@ -238,7 +241,7 @@ function showShapDetails(employee) {
 function renderPromotionHistory(promotions) {
     const timeline = $('#promotion-timeline');
     timeline.empty();
-    
+
     if (!promotions || promotions.length === 0) {
         timeline.html(`
             <div class="alert alert-warning">
@@ -250,18 +253,18 @@ function renderPromotionHistory(promotions) {
         $('.impact-value').text('0%');
         return;
     }
-    
+
     // Calculate impact score based on number and recency of promotions
     const now = new Date();
-    const impactScore = Math.min(100, 
-        promotions.length * 15 + 
+    const impactScore = Math.min(100,
+        promotions.length * 15 +
         (30 - Math.min(30, (now - new Date(promotions[0].promotion_date)) / (1000 * 60 * 60 * 24 * 30))) * 2
     );
-    
+
     // Update impact visualization
     $('.impact-fill').css('width', `${impactScore}%`);
     $('.impact-value').text(`${Math.round(impactScore)}%`);
-    
+
     // Set impact level badge
     const impactBadge = $('.historical-header .badge');
     impactBadge.removeClass('bg-primary bg-warning bg-danger');
@@ -272,13 +275,13 @@ function renderPromotionHistory(promotions) {
     } else {
         impactBadge.addClass('bg-primary').text('Impact: Moderate');
     }
-    
+
     // Add timeline items
     promotions.forEach(promo => {
         const promoDate = new Date(promo.promotion_date).toLocaleDateString();
-        const timeInRole = promo.days_since_promotion ? 
-            `${Math.floor(promo.days_since_promotion/30)} months` : 'Current role';
-        
+        const timeInRole = promo.days_since_promotion ?
+            `${Math.floor(promo.days_since_promotion / 30)} months` : 'Current role';
+
         timeline.append(`
             <div class="timeline-item">
                 <div class="timeline-date">${promoDate}</div>
@@ -292,24 +295,24 @@ function renderPromotionHistory(promotions) {
             </div>
         `);
     });
-    
+
     // Add model impact explanation
-    const impactText = impactScore > 70 ? 
+    const impactText = impactScore > 70 ?
         "Strong historical pattern of promotions significantly increases prediction" :
         impactScore > 40 ?
-        "Past promotions moderately influence current prediction" :
-        "Limited promotion history has small impact on prediction";
-    
+            "Past promotions moderately influence current prediction" :
+            "Limited promotion history has small impact on prediction";
+
     $('.historical-section .alert-info').html(`
         <i class="fas fa-info-circle me-2"></i>
         ${impactText}. Employees with similar history are 
-        <strong>${(impactScore/30).toFixed(1)}x</strong> more likely to be promoted.
+        <strong>${(impactScore / 30).toFixed(1)}x</strong> more likely to be promoted.
     `);
 }
 
 function updatePerformanceProgress(score, total) {
-    updateProgressBar('#performance-progress', '#performance-score', 
-                     parseFloat(score || 0), 10);
+    updateProgressBar('#performance-progress', '#performance-score',
+        parseFloat(score || 0), 10);
     updateDetail('#performance-total', total || 0);
 }
 
@@ -319,27 +322,27 @@ function updateAttendanceProgress(score, tardiness, absences) {
     // Convert score to number and ensure it's within 0-10 range
     const attendanceScore = Math.min(Math.max(parseFloat(score || 0), 0), 10);
     const maxScore = 10;
-    
+
     // Calculate percentage (minimum 5% width for any non-zero score)
     let percentage = (attendanceScore / maxScore) * 100;
     if (attendanceScore > 0 && percentage < 5) {
         percentage = 5;
     }
-    
+
     // Set color based on score range
     let colorClass = 'bg-danger'; // Default to red
     if (attendanceScore >= 8) colorClass = 'bg-success';
     else if (attendanceScore >= 5) colorClass = 'bg-warning';
-    
+
     // Update progress bar
     $('#attendance-progress')
         .css('width', percentage + '%')
         .removeClass('bg-success bg-warning bg-danger')
         .addClass(colorClass);
-    
+
     // Update score display (show exact value, not just 0.0 or 10)
     $('#attendance-score').text(attendanceScore.toFixed(1) + '/' + maxScore);
-    
+
     // Update detail values
     updateDetail('#tardiness', tardiness || 0);
     updateDetail('#absences', absences || 0);
@@ -348,13 +351,13 @@ function updateAttendanceProgress(score, tardiness, absences) {
 function updateDisciplineProgress(score, minorOffenses, graveOffenses) {
     const disciplineScore = parseFloat(score || 0);
     const maxScore = 10;
-    
+
     // Calculate percentage with minimum 5% width for any non-zero score
     let percentage = (disciplineScore / maxScore) * 100;
     if (disciplineScore > 0 && disciplineScore < 0.5) {
         percentage = 5; // Minimum visible width for low but non-zero scores
     }
-    
+
     // Set color based on score range
     let colorClass = 'bg-danger'; // Default to red
     if (disciplineScore >= 8) {
@@ -362,16 +365,16 @@ function updateDisciplineProgress(score, minorOffenses, graveOffenses) {
     } else if (disciplineScore >= 5) {
         colorClass = 'bg-warning';
     }
-    
+
     // Update progress bar
     $('#discipline-progress')
         .css('width', percentage + '%')
         .removeClass('bg-success bg-warning bg-danger')
         .addClass(colorClass);
-    
+
     // Update score display
     $('#discipline-score').text(disciplineScore.toFixed(1) + '/' + maxScore);
-    
+
     // Update detail values (always show, even if 0)
     updateDetail('#minor-offenses', minorOffenses || 0);
     updateDetail('#grave-offenses', graveOffenses || 0);
@@ -381,16 +384,16 @@ function updateDisciplineProgress(score, minorOffenses, graveOffenses) {
 function updateProgressBar(progressBarId, scoreId, value, max) {
     const displayValue = Math.max(value, 0); // Don't allow negative values
     const percentage = Math.min((displayValue / max) * 100, 100);
-    
+
     // Set minimum width of 5% for any non-zero value to ensure visibility
     const minVisibleWidth = value > 0 ? Math.max(percentage, 5) : percentage;
-    
+
     $(progressBarId).css('width', minVisibleWidth + '%');
     $(scoreId).text(displayValue.toFixed(1) + '/' + max);
-    
+
     // Update color based on value
-    const colorClass = displayValue >= 8 ? 'bg-success' : 
-                      displayValue >= 5 ? 'bg-warning' : 'bg-danger';
+    const colorClass = displayValue >= 8 ? 'bg-success' :
+        displayValue >= 5 ? 'bg-warning' : 'bg-danger';
     $(progressBarId)
         .removeClass('bg-success bg-warning bg-danger')
         .addClass(colorClass);
@@ -401,9 +404,9 @@ function updateDetail(selector, value) {
     // Always show the value, even if 0
     const displayValue = value || 0;
     if (typeof displayValue === 'number') {
-        $(selector).text(Number.isInteger(displayValue) ? 
-                   displayValue : 
-                   displayValue.toFixed(1));
+        $(selector).text(Number.isInteger(displayValue) ?
+            displayValue :
+            displayValue.toFixed(1));
     } else {
         $(selector).text(displayValue);
     }
@@ -412,7 +415,7 @@ function updateDetail(selector, value) {
 function renderShapPlot(shapExplanation) {
     const plotElement = document.getElementById('shap-plot');
     Plotly.purge(plotElement);
-    
+
     if (!shapExplanation || !shapExplanation.features || !shapExplanation.values) {
         plotElement.innerHTML = '<div class="alert alert-warning">SHAP explanation not available</div>';
         return;
@@ -422,15 +425,15 @@ function renderShapPlot(shapExplanation) {
     const features = shapExplanation.features || [];
     const values = shapExplanation.values || [];
     const dataValues = shapExplanation.data || [];
-    
+
     // Combine and sort by absolute SHAP value
     const shapData = features.map((feature, i) => ({
         feature: feature,
         value: parseFloat(values[i] || 0),
         data: parseFloat(dataValues[i] || 0)
     })).filter(item => item.feature)
-      .sort((a, b) => Math.abs(b.value) - Math.abs(a.value))
-      .slice(0, 10); // Top 10 features
+        .sort((a, b) => Math.abs(b.value) - Math.abs(a.value))
+        .slice(0, 10); // Top 10 features
 
     if (shapData.length === 0) {
         plotElement.innerHTML = '<div class="alert alert-info">No SHAP data available</div>';
@@ -448,14 +451,14 @@ function renderShapPlot(shapExplanation) {
             color: shapData.map(d => d.value > 0 ? '#4CAF50' : '#F44336') // Green for positive, red for negative
         }
     };
-    
+
     const layout = {
         title: 'Top Factors Influencing Promotion',
         xaxis: { title: 'SHAP Value (Impact on Prediction)' },
         margin: { l: 150, r: 20, t: 40, b: 40 },
         hovermode: 'closest'
     };
-    
+
     Plotly.newPlot(plotElement, [trace], layout);
 }
 
@@ -476,4 +479,508 @@ function showError(message) {
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>`;
     $('#alert-container').html(alert);
+}
+
+$('#print-report-btn').click(function() {
+    if (currentEmployee) {
+        generatePrintReport(currentEmployee);
+    } else {
+        alert('No employee data available for printing.');
+    }
+});
+
+function generatePrintReport(employee) {
+    const currentDate = new Date().toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    });
+
+    // Calculate metrics
+    const attendanceScore = employee.details?.attendance?.score || 0;
+    const disciplineScore = employee.details?.discipline?.score || 0;
+    const performanceScore = employee.details?.performance?.score || 0;
+    const promotionProbability = (employee.promotion_probability * 100).toFixed(1);
+
+    // Get promotion history
+    const promotionHistory = employee.promotion_history || [];
+    let promotionHistoryHTML = '';
+
+    if (promotionHistory.length > 0) {
+        promotionHistoryHTML = promotionHistory.map(promo => {
+            const promoDate = new Date(promo.promotion_date).toLocaleDateString();
+            return `
+                <div class="promotion-item">
+                    <div class="promotion-date">${promoDate}</div>
+                    <div class="promotion-details">
+                        <strong>${promo.new_position || 'Promotion'}</strong><br>
+                        <span>From: ${promo.previous_position}</span><br>
+                        <span>To: ${promo.new_position}</span><br>
+                        <span>Department: ${promo.new_department || promo.previous_department}</span><br>
+                        <span>Performance Rating: ${promo.performance_rating || 'N/A'}</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    } else {
+        promotionHistoryHTML = '<div class="no-promotions">No promotion history available</div>';
+    }
+
+    // Get top SHAP features
+    const shapData = employee.shap_explanation?.features?.map((feature, i) => ({
+        feature: feature.replace(/_/g, ' ').toUpperCase(),
+        value: parseFloat(employee.shap_explanation.values[i] || 0),
+        data: parseFloat(employee.shap_explanation.data[i] || 0)
+    })).sort((a, b) => Math.abs(b.value) - Math.abs(a.value)).slice(0, 8) || [];
+
+    const topFactorsHTML = shapData.map(item => `
+        <tr>
+            <td>${item.feature}</td>
+            <td class="text-center">${item.data.toFixed(2)}</td>
+            <td class="text-center ${item.value >= 0 ? 'positive-impact' : 'negative-impact'}">
+                ${item.value >= 0 ? '+' : ''}${item.value.toFixed(4)}
+            </td>
+            <td class="text-center">
+                <div class="impact-bar">
+                    <div class="impact-fill ${item.value >= 0 ? 'positive' : 'negative'}" 
+                         style="width: ${Math.min(Math.abs(item.value * 1000), 100)}%"></div>
+                </div>
+            </td>
+        </tr>
+    `).join('');
+
+    const printHTML = `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Employee Promotion Analysis Report - ${employee.emp_name}</title>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            
+            body {
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                line-height: 1.6;
+                color: #333;
+                background: #fff;
+                padding: 20px;
+            }
+            
+            .report-header {
+                text-align: center;
+                border-bottom: 3px solid #007bff;
+                padding-bottom: 20px;
+                margin-bottom: 30px;
+            }
+            
+            .company-logo {
+                font-size: 24px;
+                font-weight: bold;
+                color: #007bff;
+                margin-bottom: 10px;
+            }
+            
+            .report-title {
+                font-size: 28px;
+                font-weight: bold;
+                color: #2c3e50;
+                margin-bottom: 10px;
+            }
+            
+            .report-subtitle {
+                font-size: 16px;
+                color: #666;
+                margin-bottom: 15px;
+            }
+            
+            .report-date {
+                font-size: 14px;
+                color: #888;
+            }
+            
+            .employee-info {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                padding: 25px;
+                border-radius: 10px;
+                margin-bottom: 30px;
+            }
+            
+            .employee-info h2 {
+                font-size: 24px;
+                margin-bottom: 15px;
+                border-bottom: 2px solid rgba(255,255,255,0.3);
+                padding-bottom: 10px;
+            }
+            
+            .info-grid {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 15px;
+            }
+            
+            .info-item {
+                display: flex;
+                align-items: center;
+            }
+            
+            .info-label {
+                font-weight: bold;
+                margin-right: 10px;
+                min-width: 120px;
+            }
+            
+            .promotion-summary {
+                background: #f8f9fa;
+                border: 2px solid #e9ecef;
+                border-radius: 10px;
+                padding: 25px;
+                margin-bottom: 30px;
+                text-align: center;
+            }
+            
+            .probability-circle {
+                width: 120px;
+                height: 120px;
+                border-radius: 50%;
+                background: conic-gradient(#28a745 0deg ${promotionProbability * 3.6}deg, #e9ecef ${promotionProbability * 3.6}deg 360deg);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                margin: 0 auto 20px;
+                position: relative;
+            }
+            
+            .probability-inner {
+                width: 90px;
+                height: 90px;
+                background: white;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 24px;
+                font-weight: bold;
+                color: #28a745;
+            }
+            
+            .metrics-section {
+                margin-bottom: 30px;
+            }
+            
+            .metrics-grid {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 20px;
+            }
+            
+            .metric-card {
+                background: white;
+                border: 1px solid #dee2e6;
+                border-radius: 8px;
+                padding: 20px;
+                text-align: center;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            
+            .metric-title {
+                font-size: 14px;
+                color: #666;
+                margin-bottom: 10px;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+            
+            .metric-score {
+                font-size: 32px;
+                font-weight: bold;
+                margin-bottom: 10px;
+            }
+            
+            .metric-bar {
+                height: 8px;
+                background: #e9ecef;
+                border-radius: 4px;
+                overflow: hidden;
+                margin-bottom: 10px;
+            }
+            
+            .metric-fill {
+                height: 100%;
+                transition: width 0.3s ease;
+            }
+            
+            .metric-details {
+                font-size: 12px;
+                color: #666;
+            }
+            
+            .attendance .metric-fill { background: #17a2b8; }
+            .discipline .metric-fill { background: #ffc107; }
+            .performance .metric-fill { background: #28a745; }
+            
+            .factors-section {
+                margin-bottom: 30px;
+            }
+            
+            .section-title {
+                font-size: 20px;
+                font-weight: bold;
+                color: #2c3e50;
+                margin-bottom: 20px;
+                padding-bottom: 10px;
+                border-bottom: 2px solid #007bff;
+            }
+            
+            .factors-table {
+                width: 100%;
+                border-collapse: collapse;
+                background: white;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                border-radius: 8px;
+                overflow: hidden;
+            }
+            
+            .factors-table th {
+                background: #007bff;
+                color: white;
+                padding: 15px 10px;
+                text-align: left;
+                font-weight: 600;
+            }
+            
+            .factors-table td {
+                padding: 12px 10px;
+                border-bottom: 1px solid #dee2e6;
+            }
+            
+            .factors-table tr:hover {
+                background: #f8f9fa;
+            }
+            
+            .positive-impact {
+                color: #28a745;
+                font-weight: bold;
+            }
+            
+            .negative-impact {
+                color: #dc3545;
+                font-weight: bold;
+            }
+            
+            .impact-bar {
+                width: 60px;
+                height: 20px;
+                background: #e9ecef;
+                border-radius: 10px;
+                overflow: hidden;
+                position: relative;
+            }
+            
+            .impact-fill {
+                height: 100%;
+                border-radius: 10px;
+            }
+            
+            .impact-fill.positive {
+                background: #28a745;
+            }
+            
+            .impact-fill.negative {
+                background: #dc3545;
+            }
+            
+            .promotion-history {
+                margin-bottom: 30px;
+            }
+            
+            .promotion-item {
+                background: white;
+                border-left: 4px solid #007bff;
+                margin-bottom: 15px;
+                padding: 15px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                border-radius: 0 8px 8px 0;
+            }
+            
+            .promotion-date {
+                color: #007bff;
+                font-weight: bold;
+                font-size: 14px;
+                margin-bottom: 8px;
+            }
+            
+            .promotion-details {
+                color: #666;
+                font-size: 14px;
+                line-height: 1.4;
+            }
+            
+            .promotion-details strong {
+                color: #2c3e50;
+                font-size: 16px;
+            }
+            
+            .no-promotions {
+                text-align: center;
+                color: #666;
+                font-style: italic;
+                padding: 40px;
+                background: #f8f9fa;
+                border-radius: 8px;
+            }
+            
+            .report-footer {
+                margin-top: 50px;
+                padding-top: 20px;
+                border-top: 1px solid #dee2e6;
+                text-align: center;
+                color: #666;
+                font-size: 12px;
+            }
+            
+            @media print {
+                body {
+                    padding: 0;
+                }
+                
+                .metrics-grid {
+                    grid-template-columns: repeat(3, 1fr);
+                }
+                
+                .promotion-item {
+                    break-inside: avoid;
+                }
+                
+                .metric-card {
+                    break-inside: avoid;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="report-header">
+            <div class="company-logo">HR Analytics System</div>
+            <h1 class="report-title">Employee Promotion Analysis Report</h1>
+            <p class="report-subtitle">Comprehensive Performance & Promotion Readiness Assessment</p>
+            <p class="report-date">Generated on ${currentDate}</p>
+        </div>
+
+        <div class="employee-info">
+            <h2>Employee Information</h2>
+            <div class="info-grid">
+                <div class="info-item">
+                    <span class="info-label">Name:</span>
+                    <span>${employee.emp_name}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Position:</span>
+                    <span>${employee.position}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Department:</span>
+                    <span>${employee.department}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Overall Score:</span>
+                    <span>${parseFloat(employee.total_score).toFixed(2)}/10</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="promotion-summary">
+            <h2 class="section-title">Promotion Probability</h2>
+            <div class="probability-circle">
+                <div class="probability-inner">${promotionProbability}%</div>
+            </div>
+            <p><strong>Likelihood of Promotion:</strong> ${promotionProbability >= 70 ? 'High' : promotionProbability >= 40 ? 'Moderate' : 'Low'}</p>
+        </div>
+
+        <div class="metrics-section">
+            <h2 class="section-title">Performance Metrics</h2>
+            <div class="metrics-grid">
+                <div class="metric-card attendance">
+                    <div class="metric-title">Attendance</div>
+                    <div class="metric-score">${attendanceScore.toFixed(1)}</div>
+                    <div class="metric-bar">
+                        <div class="metric-fill" style="width: ${(attendanceScore / 10) * 100}%"></div>
+                    </div>
+                    <div class="metric-details">
+                        Tardiness: ${employee.details?.attendance?.tardiness || 0}<br>
+                        Absences: ${employee.details?.attendance?.absences || 0}
+                    </div>
+                </div>
+
+                <div class="metric-card discipline">
+                    <div class="metric-title">Discipline</div>
+                    <div class="metric-score">${disciplineScore.toFixed(1)}</div>
+                    <div class="metric-bar">
+                        <div class="metric-fill" style="width: ${(disciplineScore / 10) * 100}%"></div>
+                    </div>
+                    <div class="metric-details">
+                        Minor: ${employee.details?.discipline?.minor_offenses || 0}<br>
+                        Grave: ${employee.details?.discipline?.grave_offenses || 0}
+                    </div>
+                </div>
+
+                <div class="metric-card performance">
+                    <div class="metric-title">Performance</div>
+                    <div class="metric-score">${performanceScore.toFixed(1)}</div>
+                    <div class="metric-bar">
+                        <div class="metric-fill" style="width: ${(performanceScore / 10) * 100}%"></div>
+                    </div>
+                    <div class="metric-details">
+                        Total Evaluation: ${employee.details?.performance?.total || 0}/70
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="factors-section">
+            <h2 class="section-title">Key Factors Influencing Promotion Decision</h2>
+            <table class="factors-table">
+                <thead>
+                    <tr>
+                        <th>Factor</th>
+                        <th>Current Value</th>
+                        <th>Impact Score</th>
+                        <th>Influence</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${topFactorsHTML}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="promotion-history">
+            <h2 class="section-title">Promotion History</h2>
+            ${promotionHistoryHTML}
+        </div>
+
+        <div class="report-footer">
+            <p>This report was generated by the HR Analytics System using machine learning algorithms.</p>
+            <p>Report ID: RPT-${employee.emp_id}-${Date.now()} | Confidential Document</p>
+        </div>
+    </body>
+    </html>
+    `;
+
+    // Open new window and print
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(printHTML);
+    printWindow.document.close();
+
+    printWindow.onload = function () {
+        printWindow.print();
+        // Optionally close the window after printing
+        printWindow.onafterprint = function () {
+            printWindow.close();
+        };
+    };
 }
