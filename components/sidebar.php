@@ -131,6 +131,10 @@
             </a>
 
             <div class="menu-category">Settings</div>
+            <a href="./settings.php" class="menu-item <?php echo ($current_page == 'settings.php') ? 'active' : ''; ?>">
+                <i class="fa-solid fa-user"></i>
+                <span>Manage Profile</span>
+            </a>
             <a href="./logout.php" class="menu-item <?php echo ($current_page == 'logout.php') ? 'active' : ''; ?>">
                 <i class="fa-solid fa-right-from-bracket"></i>
                 <span>Log out</span>
