@@ -24,6 +24,8 @@
 
     <!-- Plotly -->
     <script src="https://cdn.plot.ly/plotly-2.18.2.min.js"></script>
+    <!-- SheetJS for Excel export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
     <!-- Custom CSS -->
     <link rel="stylesheet" href="../css/prediction.css">
@@ -65,11 +67,16 @@
                                     <option value="frequent-promotions">Frequent Promotions (3+)</option>
                                 </select>
                             </div>
+                            <button id="export-xlsx-btn" class="btn btn-success me-2">
+                                <i class="fas fa-file-excel me-2"></i> Export to XLSX
+                            </button>
                             <button id="refresh-btn" class="btn btn-primary">
                                 <i class="fas fa-sync-alt me-2"></i> Refresh Data
                             </button>
                         </div>
+
                     </div>
+
 
                     <div class="promotion-card card mb-4">
                         <div class="card-header card-header-custom bg-primary text-white">
@@ -232,6 +239,67 @@
 
 
     </div>
+    </div>
+
+    <!-- Export Filter Modal -->
+    <div class="modal fade" id="exportModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title"><i class="fas fa-file-excel me-2"></i>Export to XLS</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Export Options</label>
+                        <select id="export-filter" class="form-select">
+                            <option value="all">All Employees</option>
+                            <option value="promoted">With Promotion History</option>
+                            <option value="not-promoted">Without Promotion History</option>
+                            <option value="recently-promoted">Recently Promoted (Last 12 months)</option>
+                            <option value="frequent-promotions">Frequent Promotions (3+)</option>
+                            <option value="high-probability">High Probability (≥70%)</option>
+                            <option value="medium-probability">Medium Probability (40-69%)</option>
+                            <option value="low-probability">Low Probability (Less than 40%) </option>
+                            <option value="recently-added">Recently Added (Last 30 days)</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Department Filter (Optional)</label>
+                        <select id="export-department" class="form-select">
+                            <option value="all">All Departments</option>
+                        </select>
+                    </div>
+
+                    <div class="alert alert-info mb-3">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Data will be sorted by <strong>Employee ID</strong> in ascending order.
+                    </div>
+
+                    <div class="card bg-light">
+                        <div class="card-body">
+                            <div class="row text-center">
+                                <div class="col-6">
+                                    <small class="text-muted d-block">Total Records</small>
+                                    <h4 class="mb-0 text-primary" id="export-count">0</h4>
+                                </div>
+                                <div class="col-6">
+                                    <small class="text-muted d-block">Recently Added (30 days)</small>
+                                    <h4 class="mb-0 text-success" id="export-recent-count">0</h4>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-success" id="confirm-export-btn">
+                        <i class="fas fa-download me-2"></i>Export to XLS
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- JavaScript Libraries -->

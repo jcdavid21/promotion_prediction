@@ -486,6 +486,11 @@ async function saveEmployee() {
         regularization: elements.regularizationDate.value || null
     };
 
+    // are you sure you want to save changes?
+    if (!confirm('Are you sure you want to save these changes?')) {
+        return;
+    }
+
     try {
         let url, method;
         

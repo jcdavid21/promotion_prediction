@@ -984,3 +984,197 @@ function generatePrintReport(employee) {
         };
     };
 }
+
+// Export to XLS functionality
+$('#export-xlsx-btn').click(function() {
+    showExportModal();
+});
+
+function showExportModal() {
+    // Populate department dropdown
+    const departments = [...new Set(allEmployeeData.map(e => e.department))].sort();
+    const deptOptions = '<option value="all">All Departments</option>' + 
+        departments.map(dept => `<option value="${dept}">${dept}</option>`).join('');
+    $('#export-department').html(deptOptions);
+
+    // Update preview count
+    updateExportPreview();
+
+    // Show modal
+    $('#exportModal').modal('show');
+}
+
+$('#export-filter, #export-department').change(function() {
+    updateExportPreview();
+});
+
+function updateExportPreview() {
+    const filteredData = getFilteredExportData();
+    const recentCount = getRecentlyAddedCount(filteredData);
+    
+    $('#export-count').text(filteredData.length);
+    $('#export-recent-count').text(recentCount);
+}
+
+function getRecentlyAddedCount(data) {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    return data.filter(emp => {
+        if (!emp.created_at && !emp.date_added) return false;
+        const dateAdded = new Date(emp.created_at || emp.date_added);
+        return dateAdded >= thirtyDaysAgo;
+    }).length;
+}
+
+function getFilteredExportData() {
+    const filterValue = $('#export-filter').val();
+    const departmentValue = $('#export-department').val();
+    let filteredData = [...allEmployeeData];
+
+    // Apply promotion filter
+    switch (filterValue) {
+        case 'promoted':
+            filteredData = filteredData.filter(e => e.promotion_history && e.promotion_history.length > 0);
+            break;
+        case 'not-promoted':
+            filteredData = filteredData.filter(e => !e.promotion_history || e.promotion_history.length === 0);
+            break;
+        case 'recently-promoted':
+            filteredData = filteredData.filter(e => {
+                if (!e.promotion_history || e.promotion_history.length === 0) return false;
+                const latestPromo = new Date(e.promotion_history[0].promotion_date);
+                const oneYearAgo = new Date();
+                oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+                return latestPromo > oneYearAgo;
+            });
+            break;
+        case 'frequent-promotions':
+            filteredData = filteredData.filter(e => e.promotion_history && e.promotion_history.length >= 3);
+            break;
+        case 'high-probability':
+            filteredData = filteredData.filter(e => e.promotion_probability >= 0.7);
+            break;
+        case 'medium-probability':
+            filteredData = filteredData.filter(e => e.promotion_probability >= 0.4 && e.promotion_probability < 0.7);
+            break;
+        case 'low-probability':
+            filteredData = filteredData.filter(e => e.promotion_probability < 0.4);
+            break;
+        case 'recently-added':
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+            filteredData = filteredData.filter(e => {
+                if (!e.created_at && !e.date_added) return false;
+                const dateAdded = new Date(e.created_at || e.date_added);
+                return dateAdded >= thirtyDaysAgo;
+            });
+            break;
+    }
+
+    // Apply department filter
+    if (departmentValue !== 'all') {
+        filteredData = filteredData.filter(e => e.department === departmentValue);
+    }
+
+    // Sort by employee_id in ascending order
+    filteredData.sort((a, b) => {
+        const idA = String(a.emp_id || '').toUpperCase();
+        const idB = String(b.emp_id || '').toUpperCase();
+        return idA.localeCompare(idB);
+    });
+
+    return filteredData;
+}
+
+$('#confirm-export-btn').click(function() {
+    exportToXLS();
+});
+
+function exportToXLS() {
+    const exportData = getFilteredExportData();
+
+    if (exportData.length === 0) {
+        alert('No data to export with selected filters');
+        return;
+    }
+
+    const recentCount = getRecentlyAddedCount(exportData);
+
+    // Prepare data for export
+    const xlsData = exportData.map(emp => {
+        const isRecent = emp.created_at || emp.date_added ? 
+            (new Date(emp.created_at || emp.date_added) >= new Date(Date.now() - 30*24*60*60*1000)) : false;
+
+        return {
+            'Employee ID': emp.emp_id || 'N/A',
+            'Employee Name': emp.emp_name || 'N/A',
+            'Position': emp.position || 'N/A',
+            'Department': emp.department || 'N/A',
+            'Overall Score': emp.total_score ? parseFloat(emp.total_score).toFixed(2) : '0.00',
+            'Promotion Probability': emp.promotion_probability ? (parseFloat(emp.promotion_probability) * 100).toFixed(1) + '%' : '0.0%',
+            'Attendance Score': emp.details?.attendance?.score || 0,
+            'Tardiness': emp.details?.attendance?.tardiness || 0,
+            'Absences': emp.details?.attendance?.absences || 0,
+            'Discipline Score': emp.details?.discipline?.score || 0,
+            'Minor Offenses': emp.details?.discipline?.minor_offenses || 0,
+            'Grave Offenses': emp.details?.discipline?.grave_offenses || 0,
+            'Performance Score': emp.details?.performance?.score || 0,
+            'Performance Total': emp.details?.performance?.total || 0,
+            'Promotion Count': emp.promotion_history ? emp.promotion_history.length : 0,
+            'Last Promotion Date': emp.promotion_history && emp.promotion_history.length > 0 
+                ? new Date(emp.promotion_history[0].promotion_date).toLocaleDateString() 
+                : 'Never',
+            'Date Added': emp.created_at || emp.date_added ? 
+                new Date(emp.created_at || emp.date_added).toLocaleDateString() : 'N/A',
+            'Recently Added': isRecent ? 'YES' : 'NO'
+        };
+    });
+
+    // Create workbook and worksheet
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(xlsData);
+
+    // Set column widths
+    ws['!cols'] = [
+        { wch: 15 }, { wch: 25 }, { wch: 25 }, { wch: 20 },
+        { wch: 15 }, { wch: 20 }, { wch: 18 }, { wch: 12 },
+        { wch: 12 }, { wch: 16 }, { wch: 15 }, { wch: 15 },
+        { wch: 18 }, { wch: 18 }, { wch: 16 }, { wch: 20 },
+        { wch: 15 }, { wch: 15 }
+    ];
+
+    // Add worksheet to workbook
+    XLSX.utils.book_append_sheet(wb, ws, 'Promotion Analysis');
+
+    // Generate filename
+    const timestamp = new Date().toISOString().slice(0, 10);
+    const filterType = $('#export-filter').val();
+    const filename = `promotion_analysis_${filterType}_${timestamp}.xls`;
+
+    // Download file as XLS (using BIFF8 format)
+    XLSX.writeFile(wb, filename, { bookType: 'xls' });
+
+    // Close modal and show success
+    $('#exportModal').modal('hide');
+    showExportSuccess(exportData.length, recentCount, filename);
+}
+
+function showExportSuccess(totalCount, recentCount, filename) {
+    const alert = `
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="fas fa-check-circle me-2"></i>
+            <strong>Export Successful!</strong><br>
+            <strong>${totalCount}</strong> total records exported<br>
+            <strong>${recentCount}</strong> recently added employees (last 30 days)<br>
+            File: <strong>${filename}</strong> (sorted by Employee ID)
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>`;
+    $('#alert-container').html(alert);
+    
+    setTimeout(() => {
+        $('#alert-container').fadeOut(() => {
+            $('#alert-container').html('').show();
+        });
+    }, 8000);
+}
