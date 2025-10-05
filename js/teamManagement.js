@@ -53,13 +53,13 @@ const elements = {
 document.addEventListener('DOMContentLoaded', () => {
     const isAdminElement = document.getElementById('isAdmin');
     userPositionId = isAdminElement ? (isAdminElement.value === '1' ? 1 : 2) : 2;
-    
+
     loadEmployees();
     loadDepartments();
     loadPositions();
     loadRecentlyUploaded(); // Add this line
     setupEventListeners();
-    
+
     document.getElementById('addEmployeeBtn').addEventListener('click', prepareAddForm);
 });
 
@@ -684,7 +684,7 @@ window.changePage = changePage;
 
 async function handleCsvUpload() {
     const fileInput = elements.csvFileInput;
-    
+
     if (!fileInput.files.length) {
         alert('Please select a CSV file');
         return;
@@ -704,44 +704,126 @@ async function handleCsvUpload() {
             body: formData
         });
 
+        // Check if response is JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            throw new Error('Server returned non-JSON response. Check server logs for details.');
+        }
+
         const result = await response.json();
 
         document.getElementById('importProgress').style.display = 'none';
         const resultsDiv = document.getElementById('importResults');
         resultsDiv.style.display = 'block';
 
-        if (result.success) {
-            resultsDiv.className = 'alert alert-success';
-            resultsDiv.innerHTML = `
-                <strong>Import Successful!</strong><br>
+        // Handle both success and partial success
+        if (result.success || (result.successful && result.successful > 0)) {
+            resultsDiv.className = result.failed > 0 ? 'alert alert-warning' : 'alert alert-success';
+
+            let summaryHtml = `
+                <strong>${result.failed > 0 ? 'Import Completed with Errors' : 'Import Successful!'}</strong><br>
                 Total processed: ${result.total}<br>
                 Successful: ${result.successful}<br>
                 Failed: ${result.failed}<br>
-                ${result.errors.length > 0 ? '<br><strong>Errors:</strong><br>' + result.errors.join('<br>') : ''}
             `;
-            
+
+            if (result.errors && result.errors.length > 0) {
+                summaryHtml += '<br><strong>Errors:</strong><br>';
+                summaryHtml += '<div style="max-height: 200px; overflow-y: auto; font-size: 0.9em;">';
+                summaryHtml += result.errors.map(err => `• ${err}`).join('<br>');
+                summaryHtml += '</div>';
+
+                if (result.failed > result.errors.length) {
+                    summaryHtml += `<br><small class="text-muted">... and ${result.failed - result.errors.length} more errors</small>`;
+                }
+            }
+
+            resultsDiv.innerHTML = summaryHtml;
+
+            // Save uploaded IDs to localStorage if any were successful
             if (result.uploaded_ids && result.uploaded_ids.length > 0) {
                 localStorage.setItem('recentlyUploadedIds', JSON.stringify(result.uploaded_ids));
             }
-            
-            setTimeout(() => {
-                elements.importDataModal.hide();
-                loadEmployees(currentPage);
-                loadRecentlyUploaded();
-                resetImportModal(); // Add this line
-            }, 3000);
+
+            // Only auto-close if there were some successes
+            if (result.successful > 0) {
+                setTimeout(() => {
+                    elements.importDataModal.hide();
+                    loadEmployees(currentPage);
+                    loadRecentlyUploaded();
+                    resetImportModal();
+
+                    // Show reminder to refresh promotion predictions
+                    showPromotionRefreshReminder(result.successful);
+                }, 3000);
+            }
         } else {
+            // Complete failure
             resultsDiv.className = 'alert alert-danger';
-            resultsDiv.textContent = `Import failed: ${result.error}`;
+
+            let errorMessage = '<strong>Import Failed!</strong><br>';
+
+            if (result.error) {
+                errorMessage += `Error: ${result.error}<br>`;
+            }
+
+            if (result.details) {
+                errorMessage += '<br><details><summary>Technical Details (click to expand)</summary>';
+                errorMessage += `<pre style="font-size: 0.8em; max-height: 300px; overflow: auto;">${result.details}</pre>`;
+                errorMessage += '</details>';
+            }
+
+            if (result.errors && result.errors.length > 0) {
+                errorMessage += '<br><strong>Errors:</strong><br>';
+                errorMessage += '<div style="max-height: 200px; overflow-y: auto; font-size: 0.9em;">';
+                errorMessage += result.errors.map(err => `• ${err}`).join('<br>');
+                errorMessage += '</div>';
+            }
+
+            resultsDiv.innerHTML = errorMessage;
         }
     } catch (error) {
+        console.error('Upload error:', error);
         document.getElementById('importProgress').style.display = 'none';
         const resultsDiv = document.getElementById('importResults');
         resultsDiv.style.display = 'block';
         resultsDiv.className = 'alert alert-danger';
-        resultsDiv.textContent = `Error: ${error.message}`;
+        resultsDiv.innerHTML = `
+            <strong>Error!</strong><br>
+            ${error.message}<br>
+            <br>
+            <small class="text-muted">
+                Possible causes:<br>
+                • Server is not running<br>
+                • Network connection issue<br>
+                • Server error occurred (check console/logs)<br>
+                • Invalid CSV format
+            </small>
+        `;
     } finally {
         elements.uploadCsvBtn.disabled = false;
+    }
+}
+
+// Add this function to teamManagement.js
+function showPromotionRefreshReminder(uploadedCount) {
+    const reminderDiv = document.createElement('div');
+    reminderDiv.className = 'alert alert-info alert-dismissible fade show mt-3';
+    reminderDiv.innerHTML = `
+        <i class="fas fa-info-circle me-2"></i>
+        <strong>Promotion Predictions Update Needed!</strong><br>
+        ${uploadedCount} new employee(s) imported. To see their promotion predictions:
+        <ol class="mb-2 mt-2">
+            <li>Navigate to the <strong>Promotion Predictions</strong> page</li>
+            <li>Click the <strong>Refresh Data</strong> button to reload predictions</li>
+        </ol>
+        <small class="text-muted">Note: The ML model will automatically calculate predictions for new employees.</small>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+
+    const mainContent = document.querySelector('.col-md-9');
+    if (mainContent) {
+        mainContent.insertBefore(reminderDiv, mainContent.firstChild);
     }
 }
 
@@ -755,37 +837,37 @@ function resetImportModal() {
 
 async function loadRecentlyUploaded() {
     const recentIds = localStorage.getItem('recentlyUploadedIds');
-    
+
     if (!recentIds) {
         elements.recentlyUploadedSection.style.display = 'none';
         return;
     }
-    
+
     const ids = JSON.parse(recentIds);
-    
+
     if (ids.length === 0) {
         elements.recentlyUploadedSection.style.display = 'none';
         return;
     }
-    
+
     try {
         const response = await fetch(`${API_URL}/api/employees/recent?ids=${ids.join(',')}`);
         const employees = await response.json();
-        
+
         if (employees.length === 0) {
             elements.recentlyUploadedSection.style.display = 'none';
             return;
         }
-        
+
         elements.recentlyUploadedSection.style.display = 'block';
         elements.recentUploadCount.textContent = employees.length;
         elements.recentlyUploadedCards.innerHTML = '';
-        
+
         employees.forEach(emp => {
             const card = createRecentEmployeeCard(emp);
             elements.recentlyUploadedCards.appendChild(card);
         });
-        
+
     } catch (error) {
         console.error('Error loading recently uploaded employees:', error);
     }
@@ -794,10 +876,10 @@ async function loadRecentlyUploaded() {
 function createRecentEmployeeCard(emp) {
     const col = document.createElement('div');
     col.className = 'col';
-    
+
     const statusClass = getStatusClass(emp.emp_status);
     const tenure = calculateTenure(emp.start_date);
-    
+
     col.innerHTML = `
         <div class="card border-success shadow-sm">
             <div class="card-body">
@@ -824,10 +906,10 @@ function createRecentEmployeeCard(emp) {
             </div>
         </div>
     `;
-    
+
     col.querySelector('.view-detail').addEventListener('click', () => showEmployeeDetail(emp.emp_id));
     col.querySelector('.edit-employee').addEventListener('click', () => prepareEditForm(emp.emp_id));
-    
+
     return col;
 }
 
@@ -840,43 +922,43 @@ function clearRecentUploads() {
 
 async function handleFileSelect(event) {
     const file = event.target.files[0];
-    
+
     if (!file) {
         elements.csvPreviewSection.style.display = 'none';
         elements.uploadCsvBtn.style.display = 'none';
         return;
     }
-    
+
     if (!file.name.endsWith('.csv')) {
         alert('Please select a CSV file');
         event.target.value = '';
         return;
     }
-    
+
     try {
         const text = await file.text();
         const lines = text.split('\n').filter(line => line.trim());
-        
+
         if (lines.length < 2) {
             alert('CSV file appears to be empty or invalid');
             return;
         }
-        
+
         // Parse CSV
         const headers = parseCSVLine(lines[0]);
         const rows = [];
-        
+
         for (let i = 1; i < Math.min(lines.length, 11); i++) { // Preview first 10 rows
             const row = parseCSVLine(lines[i]);
             if (row.length === headers.length) {
                 rows.push(row);
             }
         }
-        
+
         displayCSVPreview(headers, rows, lines.length - 1);
         elements.csvPreviewSection.style.display = 'block';
         elements.uploadCsvBtn.style.display = 'inline-block';
-        
+
     } catch (error) {
         alert('Error reading CSV file: ' + error.message);
         event.target.value = '';
@@ -887,10 +969,10 @@ function parseCSVLine(line) {
     const result = [];
     let current = '';
     let inQuotes = false;
-    
+
     for (let i = 0; i < line.length; i++) {
         const char = line[i];
-        
+
         if (char === '"') {
             inQuotes = !inQuotes;
         } else if (char === ',' && !inQuotes) {
@@ -900,14 +982,14 @@ function parseCSVLine(line) {
             current += char;
         }
     }
-    
+
     result.push(current.trim());
     return result;
 }
 
 function displayCSVPreview(headers, rows, totalRows) {
     elements.totalRowsCount.textContent = `${totalRows} rows`;
-    
+
     // Create table headers
     const thead = elements.csvPreviewTable.querySelector('thead');
     thead.innerHTML = `
@@ -916,7 +998,7 @@ function displayCSVPreview(headers, rows, totalRows) {
             ${headers.map(header => `<th>${header}</th>`).join('')}
         </tr>
     `;
-    
+
     // Create table rows
     const tbody = elements.csvPreviewTable.querySelector('tbody');
     tbody.innerHTML = rows.map((row, index) => `

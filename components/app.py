@@ -65,14 +65,14 @@ def get_employee_data():
     
     query = """
     SELECT td.emp_id, td.emp_name, td.age, td.gender, td.emp_status, td.department, 
-           td.start_date, td.regularization, td.tenure, ta.eval_id, ta.tardiness, ta.tardy, 
-           ta.comb_ab_hd, ta.comb_uab_uhd, ta.AB, ta.UAB, ta.HD, ta.UHD, tbd.minor, 
-           tbd.grave, tbd.suspension, tbo.performance, tbo.manager_input, tbo.psa_input, 
-           tbe.highlight, tbe.lowlight, tbe.administration, tbe.knowledge_of_work, 
-           tbe.quality_of_work, tbe.communication, tbe.team, tbe.decision, tbe.dependability, 
-           tbe.adaptability, tbe.leadership, tbe.customer, tbe.human_relations, 
-           tbe.personal_appearance, tbe.safety, tbe.discipline, tbe.potential_growth, 
-           tp.position_name, dp.dept_name  
+        td.start_date, td.regularization, td.tenure, td.created_at, ta.eval_id, ta.tardiness, ta.tardy, 
+        ta.comb_ab_hd, ta.comb_uab_uhd, ta.AB, ta.UAB, ta.HD, ta.UHD, tbd.minor, 
+        tbd.grave, tbd.suspension, tbo.performance, tbo.manager_input, tbo.psa_input, 
+        tbe.highlight, tbe.lowlight, tbe.administration, tbe.knowledge_of_work, 
+        tbe.quality_of_work, tbe.communication, tbe.team, tbe.decision, tbe.dependability, 
+        tbe.adaptability, tbe.leadership, tbe.customer, tbe.human_relations, 
+        tbe.personal_appearance, tbe.safety, tbe.discipline, tbe.potential_growth, 
+        tp.position_name, dp.dept_name  
     FROM tbl_employee_details td 
     INNER JOIN tbl_eval_attendance ta ON ta.emp_id = td.emp_id 
     INNER JOIN tbl_eval_discipline tbd ON tbd.eval_id = ta.eval_id 
@@ -284,6 +284,7 @@ def get_promotion_predictions():
         
         categories = get_categories()
         employee_data = get_employee_data()
+        created_at_map = {emp['emp_id']: emp.get('created_at') for emp in employee_data}
         promotion_history = get_promotion_history()
         
         if not employee_data:
@@ -464,6 +465,7 @@ def get_promotion_predictions():
                 'department': row['dept_name'],
                 'total_score': float(row['total_score']),
                 'promotion_probability': float(row['promotion_probability']),
+                'created_at': str(created_at_map.get(int(row['emp_id']))) if created_at_map.get(int(row['emp_id'])) else None,  # UPDATED THIS LINE
                 'promotion_history': emp_promo_history,
                 'shap_explanation': employee_shap,
                 'details': {
@@ -712,7 +714,7 @@ def get_employees():
         
         # Base query
         query = """
-        SELECT e.*, d.dept_name, p.position_name 
+        SELECT e.*, d.dept_name, p.position_name, e.created_at
         FROM tbl_employee_details e
         LEFT JOIN tbl_department d ON e.department = d.dept_id
         LEFT JOIN tbl_positions p ON e.position = p.position_id
@@ -1638,18 +1640,18 @@ def safe_get(row, key, default=''):
     return str(value).strip()
 
 def safe_int(value, default=0):
-    """Safely convert to int"""
+    """Safely convert value to int, return default if conversion fails"""
     try:
-        if value is None or str(value).strip().lower() in ['', 'nan', 'none', 'null']:
+        if value is None or value == '' or str(value).strip() == '':
             return default
         return int(float(str(value).strip()))
     except (ValueError, TypeError):
         return default
 
 def safe_float(value, default=None):
-    """Safely convert to float, returns None for empty values"""
+    """Safely convert value to float, return default if conversion fails"""
     try:
-        if value is None or str(value).strip().lower() in ['', 'nan', 'none', 'null']:
+        if value is None or value == '' or str(value).strip() == '':
             return default
         return float(str(value).strip())
     except (ValueError, TypeError):
@@ -1657,7 +1659,7 @@ def safe_float(value, default=None):
 
 @app.route('/api/import_employees', methods=['POST'])
 def import_employees():
-    """Import employees from CSV file"""
+    """Import employees from CSV file with complete evaluation data"""
     try:
         if 'csv_file' not in request.files:
             return jsonify({'success': False, 'error': 'No file provided'}), 400
@@ -1670,16 +1672,14 @@ def import_employees():
         if not file.filename.endswith('.csv'):
             return jsonify({'success': False, 'error': 'File must be a CSV'}), 400
         
-        # Read CSV file using pandas to handle empty values properly
         import pandas as pd
         from io import BytesIO
         
-        # Read CSV and replace NaN with empty strings
+        # Read CSV and handle empty values
         df = pd.read_csv(BytesIO(file.read()), na_values=['', 'nan', 'NaN', 'null', 'NULL'], keep_default_na=True)
-        df = df.fillna('')  # Replace all NaN with empty strings
+        df = df.fillna('')
         
         conn = mysql.connector.connect(**db_config)
-        cursor = conn.cursor(dictionary=True)
         
         successful = 0
         failed = 0
@@ -1687,17 +1687,28 @@ def import_employees():
         uploaded_ids = []
         total = len(df)
         
-        # Get department and position mappings
-        cursor.execute("SELECT dept_id, dept_name FROM tbl_department")
-        dept_map = {row['dept_name']: row['dept_id'] for row in cursor.fetchall()}
+        # Use buffered cursor for lookups to prevent unread results
+        lookup_cursor = conn.cursor(dictionary=True, buffered=True)
         
-        cursor.execute("SELECT position_id, position_name FROM tbl_positions")
-        pos_map = {row['position_name']: row['position_id'] for row in cursor.fetchall()}
+        # Get department and position mappings
+        lookup_cursor.execute("SELECT dept_id, dept_name FROM tbl_department")
+        dept_map = {row['dept_name']: row['dept_id'] for row in lookup_cursor.fetchall()}
+        
+        lookup_cursor.execute("SELECT position_id, position_name FROM tbl_positions")
+        pos_map = {row['position_name']: row['position_id'] for row in lookup_cursor.fetchall()}
+        
+        lookup_cursor.close()
+        
         
         for index, row in df.iterrows():
             row_num = index + 2  # CSV row number (accounting for header)
             emp_name = ''
+            cursor = None
+            
             try:
+                # Create a buffered cursor for each employee to avoid unread results
+                cursor = conn.cursor(dictionary=True, buffered=True)
+                
                 # Extract employee basic info
                 emp_name = str(row.get('Employee Name', '')).strip()
                 age = str(row.get('Age', '')).strip()
@@ -1714,11 +1725,13 @@ def import_employees():
                 if not emp_name:
                     errors.append(f"Row {row_num}: Employee name is required")
                     failed += 1
+                    cursor.close()
                     continue
                 
                 if not start_date:
                     errors.append(f"Row {row_num}: Start date is required for {emp_name}")
                     failed += 1
+                    cursor.close()
                     continue
                 
                 # Map department and position
@@ -1737,14 +1750,25 @@ def import_employees():
                 if not dept_id:
                     errors.append(f"Row {row_num}: Invalid department '{dept_name}' for {emp_name}")
                     failed += 1
+                    cursor.close()
                     continue
                 
                 if not pos_id:
                     errors.append(f"Row {row_num}: Invalid position '{pos_name}' for {emp_name}")
                     failed += 1
+                    cursor.close()
+                    continue
+
+                # Check if employee already exists
+                cursor.execute("SELECT emp_id FROM tbl_employee_details WHERE emp_name = %s AND active_status = 1", (emp_name,))
+                existing_emp = cursor.fetchone()
+                if existing_emp:
+                    errors.append(f"Row {row_num}: Employee '{emp_name}' already exists (ID: {existing_emp['emp_id']})")
+                    failed += 1
+                    cursor.close()
                     continue
                 
-                # Insert employee
+                # Insert employee basic details
                 emp_query = """
                 INSERT INTO tbl_employee_details (
                     emp_name, age, gender, status, emp_status, department, position,
@@ -1766,7 +1790,6 @@ def import_employees():
                 ))
                 
                 emp_id = cursor.lastrowid
-                uploaded_ids.append(emp_id)
                 
                 # Insert attendance data
                 attendance_query = """
@@ -1817,37 +1840,97 @@ def import_employees():
                     safe_float(row.get('PSA_Input'))
                 ))
                 
+                # Insert evaluation data - uses emp_id directly, not eval_id
+                evaluation_query = """
+                INSERT INTO tbl_evaluation (
+                    emp_id, administration, knowledge_of_work, quality_of_work,
+                    communication, team, decision, dependability, adaptability,
+                    leadership, customer, human_relations, personal_appearance,
+                    safety, discipline, potential_growth, highlight, lowlight
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """
+                
+                highlight_val = str(row.get('Highlight', '')).strip()
+                lowlight_val = str(row.get('Lowlight', '')).strip()
+                
+                cursor.execute(evaluation_query, (
+                    emp_id,
+                    safe_int(row.get('Administration', 1)),
+                    safe_int(row.get('Knowledge_of_Work', 1)),
+                    safe_int(row.get('Quality_of_Work', 1)),
+                    safe_int(row.get('Communication', 1)),
+                    safe_int(row.get('Team', 1)),
+                    safe_int(row.get('Decision', 1)),
+                    safe_int(row.get('Dependability', 1)),
+                    safe_int(row.get('Adaptability', 1)),
+                    safe_int(row.get('Leadership', 1)),
+                    safe_int(row.get('Customer', 1)),
+                    safe_int(row.get('Human_Relations', 1)),
+                    safe_int(row.get('Personal_Appearance', 1)),
+                    safe_int(row.get('Safety', 1)),
+                    safe_int(row.get('Discipline', 1)),
+                    safe_int(row.get('Potential_Growth', 1)),
+                    highlight_val if highlight_val else None,
+                    lowlight_val if lowlight_val else None
+                ))
+                
+                # Commit after each successful employee insert
+                conn.commit()
+                uploaded_ids.append(emp_id)
                 successful += 1
                 
+                # Close cursor after successful insert
+                cursor.close()
+                
             except Exception as e:
+                # Rollback on any error to prevent partial inserts
+                conn.rollback()
                 failed += 1
                 error_msg = str(e)
                 errors.append(f"Row {row_num} ({emp_name if emp_name else 'Unknown'}): {error_msg}")
                 app.logger.error(f"Error importing row {row_num}: {error_msg}")
+                
+                # Close cursor if it exists
+                if cursor:
+                    cursor.close()
                 continue
         
-        conn.commit()
-        cursor.close()
         conn.close()
         
+        # Show accurate success/failure message
+        success_status = successful > 0
+        message = f'Successfully imported {successful} out of {total} employees.'
+        
+        if failed > 0:
+            message += f' {failed} employee(s) failed to import (see errors below).'
+        
+        if successful > 0:
+            message += ' New employees will appear in promotion predictions after refresh.'
+        
         return jsonify({
-            'success': True,
+            'success': success_status,
             'total': total,
             'successful': successful,
             'failed': failed,
-            'errors': errors[:10],
-            'uploaded_ids': uploaded_ids
+            'errors': errors[:20],
+            'uploaded_ids': uploaded_ids,
+            'message': message
         })
         
     except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
         app.logger.error(f"Error importing employees: {str(e)}")
+        app.logger.error(f"Traceback: {error_details}")
         return jsonify({
             'success': False,
-            'error': str(e),
-            'traceback': traceback.format_exc()
+            'error': f"Import failed: {str(e)}",
+            'details': error_details,
+            'total': 0,
+            'successful': 0,
+            'failed': 0,
+            'errors': []
         }), 500
-    
-
 
 if __name__ == '__main__':
     app.run(debug=True, port=8800, threaded=True, use_reloader=False)

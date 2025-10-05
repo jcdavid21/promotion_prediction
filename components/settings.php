@@ -1,32 +1,33 @@
 <!DOCTYPE html>
-<?php 
-    session_start();
-    include_once "../backend/config.php";
+<?php
+session_start();
+include_once "../backend/config.php";
 
-    if(!isset($_SESSION["acc_id"])){
-        header("Location: ./logout.php");
-    }
-    
-    $acc_id = $_SESSION["acc_id"];
-    $position_id = $_SESSION["position_id"];
+if (!isset($_SESSION["acc_id"])) {
+    header("Location: ./logout.php");
+}
 
-    // Fetch current user data
-    $user_query = "SELECT a.*, ad.*, p.position_name 
+$acc_id = $_SESSION["acc_id"];
+$position_id = $_SESSION["position_id"];
+
+// Fetch current user data
+$user_query = "SELECT a.*, ad.*, p.position_name 
                    FROM tbl_account a 
                    LEFT JOIN tbl_account_details ad ON a.acc_id = ad.acc_id 
                    LEFT JOIN tbl_positions p ON a.position_id = p.position_id 
                    WHERE a.acc_id = ?";
-    $user_stmt = $conn->prepare($user_query);
-    $user_stmt->bind_param("i", $acc_id);
-    $user_stmt->execute();
-    $user_result = $user_stmt->get_result();
-    $user_data = $user_result->fetch_assoc();
+$user_stmt = $conn->prepare($user_query);
+$user_stmt->bind_param("i", $acc_id);
+$user_stmt->execute();
+$user_result = $user_stmt->get_result();
+$user_data = $user_result->fetch_assoc();
 
-    // Fetch all positions for dropdown
-    $positions_query = "SELECT * FROM tbl_positions ORDER BY position_name";
-    $positions_result = $conn->query($positions_query);
+// Fetch all positions for dropdown
+$positions_query = "SELECT * FROM tbl_positions ORDER BY position_name";
+$positions_result = $conn->query($positions_query);
 ?>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -65,7 +66,7 @@
             padding: 30px;
             border-radius: 15px;
             margin-bottom: 30px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
         }
 
         .page-header h1 {
@@ -82,7 +83,7 @@
         .settings-card {
             background: var(--white);
             border-radius: 15px;
-            box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
             margin-bottom: 30px;
             overflow: hidden;
             border: none;
@@ -124,7 +125,9 @@
             box-shadow: 0 0 0 0.2rem rgba(108, 117, 125, 0.25);
         }
 
-        .btn-primary-custom, .btn-success-custom, .btn-danger-custom {
+        .btn-primary-custom,
+        .btn-success-custom,
+        .btn-danger-custom {
             background-color: var(--dark-grey) !important;
             border: none;
             border-radius: 10px;
@@ -134,7 +137,9 @@
             transition: all 0.3s;
         }
 
-        .btn-primary-custom:hover, .btn-success-custom:hover, .btn-danger-custom:hover {
+        .btn-primary-custom:hover,
+        .btn-success-custom:hover,
+        .btn-danger-custom:hover {
             background-color: var(--medium-grey);
             transform: translateY(-2px);
             box-shadow: 0 5px 15px rgba(108, 117, 125, 0.4);
@@ -185,25 +190,26 @@
             body {
                 margin-left: 0;
             }
-            
+
             .content-wrapper {
                 padding: 15px;
             }
-            
+
             .page-header {
                 padding: 20px;
                 margin-bottom: 20px;
             }
-            
+
             .card-body-custom {
                 padding: 20px;
             }
         }
     </style>
 </head>
+
 <body>
     <?php include_once "./sidebar.php"; ?>
-    
+
     <div class="content-wrapper">
         <div class="page-header">
             <h1>Profile Settings</h1>
@@ -222,46 +228,46 @@
                 <form id="profileForm">
                     <input type="hidden" name="action" value="update_profile">
                     <input type="hidden" name="acc_id" value="<?php echo $acc_id; ?>">
-                    
+
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-group">
                                 <label for="first_name" class="form-label">First Name</label>
-                                <input type="text" class="form-control" id="first_name" name="first_name" 
-                                       value="<?php echo htmlspecialchars($user_data['first_name'] ?? ''); ?>" required>
+                                <input type="text" class="form-control" id="first_name" name="first_name"
+                                    value="<?php echo htmlspecialchars($user_data['first_name'] ?? ''); ?>" required>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="form-group">
                                 <label for="middle_name" class="form-label">Middle Name</label>
-                                <input type="text" class="form-control" id="middle_name" name="middle_name" 
-                                       value="<?php echo htmlspecialchars($user_data['middle_name'] ?? ''); ?>">
+                                <input type="text" class="form-control" id="middle_name" name="middle_name"
+                                    value="<?php echo htmlspecialchars($user_data['middle_name'] ?? ''); ?>">
                             </div>
                         </div>
                     </div>
-                    
+
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-group">
                                 <label for="last_name" class="form-label">Last Name</label>
-                                <input type="text" class="form-control" id="last_name" name="last_name" 
-                                       value="<?php echo htmlspecialchars($user_data['last_name'] ?? ''); ?>" required>
+                                <input type="text" class="form-control" id="last_name" name="last_name"
+                                    value="<?php echo htmlspecialchars($user_data['last_name'] ?? ''); ?>" required>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="form-group">
                                 <label for="contact" class="form-label">Contact Number</label>
-                                <input type="text" class="form-control" id="contact" name="contact" 
-                                       value="<?php echo htmlspecialchars($user_data['contact'] ?? ''); ?>" required>
+                                <input type="text" class="form-control" id="contact" name="contact"
+                                    value="<?php echo htmlspecialchars($user_data['contact'] ?? ''); ?>" required>
                             </div>
                         </div>
                     </div>
-                    
+
                     <div class="form-group">
                         <label for="address" class="form-label">Address</label>
                         <textarea class="form-control" id="address" name="address" rows="3" required><?php echo htmlspecialchars($user_data['address'] ?? ''); ?></textarea>
                     </div>
-                    
+
                     <div class="text-end">
                         <button type="submit" class="btn btn-success-custom">
                             <i class="fas fa-save me-2"></i>Update Profile
@@ -280,22 +286,22 @@
                 <form id="accountForm">
                     <input type="hidden" name="action" value="update_account">
                     <input type="hidden" name="acc_id" value="<?php echo $acc_id; ?>">
-                    
+
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-group">
                                 <label for="username" class="form-label">Username</label>
-                                <input type="text" class="form-control" id="username" name="username" 
-                                       value="<?php echo htmlspecialchars($user_data['username'] ?? ''); ?>" required>
+                                <input type="text" class="form-control" id="username" name="username"
+                                    value="<?php echo htmlspecialchars($user_data['username'] ?? ''); ?>" required>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="form-group">
                                 <label for="position_id" class="form-label">Position</label>
                                 <select class="form-control" id="position_id" name="position_id" required>
-                                    <?php while($position = $positions_result->fetch_assoc()): ?>
-                                        <option value="<?php echo $position['position_id']; ?>" 
-                                                <?php echo ($position['position_id'] == $user_data['position_id']) ? 'selected' : ''; ?>>
+                                    <?php while ($position = $positions_result->fetch_assoc()): ?>
+                                        <option value="<?php echo $position['position_id']; ?>"
+                                            <?php echo ($position['position_id'] == $user_data['position_id']) ? 'selected' : ''; ?>>
                                             <?php echo htmlspecialchars($position['position_name']); ?>
                                         </option>
                                     <?php endwhile; ?>
@@ -303,7 +309,7 @@
                             </div>
                         </div>
                     </div>
-                    
+
                     <div class="text-end">
                         <button type="submit" class="btn btn-primary-custom">
                             <i class="fas fa-sync me-2"></i>Update Account
@@ -322,7 +328,7 @@
                 <form id="passwordForm">
                     <input type="hidden" name="action" value="change_password">
                     <input type="hidden" name="acc_id" value="<?php echo $acc_id; ?>">
-                    
+
                     <div class="form-group">
                         <label for="current_password" class="form-label">Current Password</label>
                         <div class="input-group">
@@ -332,7 +338,7 @@
                             </span>
                         </div>
                     </div>
-                    
+
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-group">
@@ -357,7 +363,7 @@
                             </div>
                         </div>
                     </div>
-                    
+
                     <div class="text-end">
                         <button type="submit" class="btn btn-danger-custom">
                             <i class="fas fa-key me-2"></i>Change Password
@@ -368,20 +374,57 @@
         </div>
     </div>
 
+    <!-- Confirmation Modal -->
+    <div class="modal fade" id="confirmModal" tabindex="-1" aria-labelledby="confirmModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header" style="background-color: var(--dark-grey); color: white;">
+                    <h5 class="modal-title" id="confirmModalLabel">
+                        <i class="fas fa-question-circle me-2"></i>Confirm Action
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="confirmModalBody">
+                    Are you sure you want to proceed?
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary-custom" id="confirmModalBtn">Confirm</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
     <script>
+        let confirmCallback = null;
+
+        function showConfirmModal(message, callback) {
+            $('#confirmModalBody').text(message);
+            confirmCallback = callback;
+            $('#confirmModal').modal('show');
+        }
+
+        $('#confirmModalBtn').click(function() {
+            $('#confirmModal').modal('hide');
+            if (confirmCallback) {
+                confirmCallback();
+                confirmCallback = null;
+            }
+        });
+
         function showAlert(message, type) {
             const alertHtml = `
-                <div class="alert alert-${type} alert-custom alert-dismissible fade show" role="alert">
-                    <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'danger' ? 'exclamation-circle' : 'info-circle'} me-2"></i>
-                    ${message}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
-            `;
+            <div class="alert alert-${type} alert-custom alert-dismissible fade show" role="alert">
+                <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'danger' ? 'exclamation-circle' : 'info-circle'} me-2"></i>
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        `;
             $('#alertContainer').html(alertHtml);
-            
+
             // Auto dismiss after 5 seconds
             setTimeout(() => {
                 $('.alert').fadeOut();
@@ -391,7 +434,7 @@
         function togglePassword(fieldId) {
             const field = document.getElementById(fieldId);
             const icon = field.nextElementSibling.querySelector('i');
-            
+
             if (field.type === 'password') {
                 field.type = 'text';
                 icon.classList.remove('fa-eye');
@@ -406,93 +449,104 @@
         // Profile form submission
         $('#profileForm').submit(function(e) {
             e.preventDefault();
-            
-            $.ajax({
-                url: '../backend/accounts/update_profile.php',
-                method: 'POST',
-                data: $(this).serialize(),
-                dataType: 'json',
-                success: function(response) {
-                    if (response.success) {
-                        showAlert(response.message, 'success');
-                        setTimeout(()=>{
-                            location.reload();
-                        }, 2000);
-                    } else {
-                        showAlert(response.message, 'danger');
+            const formData = $(this).serialize();
+
+            showConfirmModal("Are you sure you want to update your profile information?", function() {
+                $.ajax({
+                    url: '../backend/accounts/update_profile.php',
+                    method: 'POST',
+                    data: formData,
+                    dataType: 'json',
+                    success: function(response) {
+                        if (response.success) {
+                            showAlert(response.message, 'success');
+                            setTimeout(() => {
+                                location.reload();
+                            }, 2000);
+                        } else {
+                            showAlert(response.message, 'danger');
+                        }
+                    },
+                    error: function() {
+                        showAlert('An error occurred while updating profile.', 'danger');
                     }
-                },
-                error: function() {
-                    showAlert('An error occurred while updating profile.', 'danger');
-                }
+                });
             });
         });
 
         // Account form submission
         $('#accountForm').submit(function(e) {
             e.preventDefault();
-            
-            $.ajax({
-                url: '../backend/accounts/update_profile.php',
-                method: 'POST',
-                data: $(this).serialize(),
-                dataType: 'json',
-                success: function(response) {
-                    if (response.success) {
-                        showAlert(response.message, 'success');
-                        window.scrollTo(0, 0);
-                        setTimeout(() => {
-                            location.reload();
-                        }, 2000);
-                    } else {
-                        showAlert(response.message, 'danger');
+            const formData = $(this).serialize();
+
+            showConfirmModal("Are you sure you want to update your account information?", function() {
+                $.ajax({
+                    url: '../backend/accounts/update_profile.php',
+                    method: 'POST',
+                    data: formData,
+                    dataType: 'json',
+                    success: function(response) {
+                        if (response.success) {
+                            showAlert(response.message, 'success');
+                            window.scrollTo(0, 0);
+                            setTimeout(() => {
+                                location.reload();
+                            }, 2000);
+                        } else {
+                            showAlert(response.message, 'danger');
+                        }
+                    },
+                    error: function() {
+                        showAlert('An error occurred while updating account.', 'danger');
                     }
-                },
-                error: function() {
-                    showAlert('An error occurred while updating account.', 'danger');
-                }
+                });
             });
         });
 
         // Password form submission
         $('#passwordForm').submit(function(e) {
             e.preventDefault();
-            
+
             const newPassword = $('#new_password').val();
             const confirmPassword = $('#confirm_password').val();
-            
+
             if (newPassword !== confirmPassword) {
                 showAlert('New passwords do not match!', 'danger');
                 return;
             }
-            
+
             if (newPassword.length < 6) {
                 showAlert('Password must be at least 6 characters long!', 'danger');
                 return;
             }
-            
-            $.ajax({
-                url: '../backend/accounts/update_profile.php',
-                method: 'POST',
-                data: $(this).serialize(),
-                dataType: 'json',
-                success: function(response) {
-                    if (response.success) {
-                        showAlert(response.message, 'success');
-                        $('#passwordForm')[0].reset();
-                        window.scrollTo(0, 0);
-                        setTimeout(()=>{
-                            location.reload();
-                        }, 2000);
-                    } else {
-                        showAlert(response.message, 'danger');
+
+            const formData = $(this).serialize();
+
+            showConfirmModal("Are you sure you want to change your password?", function() {
+                $.ajax({
+                    url: '../backend/accounts/update_profile.php',
+                    method: 'POST',
+                    data: formData,
+                    dataType: 'json',
+                    success: function(response) {
+                        if (response.success) {
+                            showAlert(response.message, 'success');
+                            $('#passwordForm')[0].reset();
+                            window.scrollTo(0, 0);
+                            setTimeout(() => {
+                                location.reload();
+                            }, 2000);
+                        } else {
+                            showAlert(response.message, 'danger');
+                        }
+                    },
+                    error: function() {
+                        showAlert('An error occurred while changing password.', 'danger');
                     }
-                },
-                error: function() {
-                    showAlert('An error occurred while changing password.', 'danger');
-                }
+                });
             });
         });
     </script>
 </body>
+
 </html>

@@ -160,12 +160,13 @@ function loadPromotionPredictions() {
         url: 'http://localhost:8800/api/promotion_predictions',
         type: 'GET',
         dataType: 'json',
+        cache: false, // Prevent caching to always get fresh data
         success: function (response) {
             hideLoading();
 
             if (response && response.success) {
                 allEmployeeData = response.data || [];
-                currentEmployeeData = [...allEmployeeData]; // Start with all data
+                currentEmployeeData = [...allEmployeeData];
                 currentThreshold = response.threshold ? parseFloat(response.threshold) : 0;
 
                 if (isNaN(currentThreshold)) {
@@ -182,6 +183,22 @@ function loadPromotionPredictions() {
 
                 // Apply any active filter
                 applyPromotionFilter();
+
+                // Show success message for data refresh
+                if (allEmployeeData.length > 0) {
+                    const infoAlert = `
+                        <div class="alert alert-info alert-dismissible fade show" role="alert">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Loaded <strong>${allEmployeeData.length}</strong> employee records with predictions
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>`;
+
+                    // Only show if there's no other alert
+                    if ($('#alert-container').children().length === 0) {
+                        $('#alert-container').html(infoAlert);
+                        setTimeout(() => $('#alert-container').empty(), 3000);
+                    }
+                }
             } else {
                 const errorMsg = response?.error || 'Unknown server error';
                 showError('Failed to load predictions: ' + errorMsg);
@@ -481,7 +498,7 @@ function showError(message) {
     $('#alert-container').html(alert);
 }
 
-$('#print-report-btn').click(function() {
+$('#print-report-btn').click(function () {
     if (currentEmployee) {
         generatePrintReport(currentEmployee);
     } else {
@@ -986,14 +1003,14 @@ function generatePrintReport(employee) {
 }
 
 // Export to XLS functionality
-$('#export-xlsx-btn').click(function() {
+$('#export-xlsx-btn').click(function () {
     showExportModal();
 });
 
 function showExportModal() {
     // Populate department dropdown
     const departments = [...new Set(allEmployeeData.map(e => e.department))].sort();
-    const deptOptions = '<option value="all">All Departments</option>' + 
+    const deptOptions = '<option value="all">All Departments</option>' +
         departments.map(dept => `<option value="${dept}">${dept}</option>`).join('');
     $('#export-department').html(deptOptions);
 
@@ -1004,14 +1021,14 @@ function showExportModal() {
     $('#exportModal').modal('show');
 }
 
-$('#export-filter, #export-department').change(function() {
+$('#export-filter, #export-department').change(function () {
     updateExportPreview();
 });
 
 function updateExportPreview() {
     const filteredData = getFilteredExportData();
     const recentCount = getRecentlyAddedCount(filteredData);
-    
+
     $('#export-count').text(filteredData.length);
     $('#export-recent-count').text(recentCount);
 }
@@ -1020,10 +1037,25 @@ function getRecentlyAddedCount(data) {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     
+    console.log('Checking recent employees:', {
+        total: data.length,
+        thirtyDaysAgo: thirtyDaysAgo,
+        sample: data.slice(0, 3).map(e => ({
+            name: e.emp_name,
+            created_at: e.created_at,
+            type: typeof e.created_at
+        }))
+    });
+
     return data.filter(emp => {
-        if (!emp.created_at && !emp.date_added) return false;
-        const dateAdded = new Date(emp.created_at || emp.date_added);
-        return dateAdded >= thirtyDaysAgo;
+        if (!emp.created_at) {
+            console.log('No created_at for:', emp.emp_name);
+            return false;
+        }
+        const dateAdded = new Date(emp.created_at);
+        const isRecent = dateAdded >= thirtyDaysAgo;
+        console.log(`${emp.emp_name}: ${emp.created_at} -> ${isRecent}`);
+        return isRecent;
     }).length;
 }
 
@@ -1087,7 +1119,7 @@ function getFilteredExportData() {
     return filteredData;
 }
 
-$('#confirm-export-btn').click(function() {
+$('#confirm-export-btn').click(function () {
     exportToXLS();
 });
 
@@ -1103,8 +1135,8 @@ function exportToXLS() {
 
     // Prepare data for export
     const xlsData = exportData.map(emp => {
-        const isRecent = emp.created_at || emp.date_added ? 
-            (new Date(emp.created_at || emp.date_added) >= new Date(Date.now() - 30*24*60*60*1000)) : false;
+        const isRecent = emp.created_at || emp.date_added ?
+            (new Date(emp.created_at || emp.date_added) >= new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)) : false;
 
         return {
             'Employee ID': emp.emp_id || 'N/A',
@@ -1122,10 +1154,10 @@ function exportToXLS() {
             'Performance Score': emp.details?.performance?.score || 0,
             'Performance Total': emp.details?.performance?.total || 0,
             'Promotion Count': emp.promotion_history ? emp.promotion_history.length : 0,
-            'Last Promotion Date': emp.promotion_history && emp.promotion_history.length > 0 
-                ? new Date(emp.promotion_history[0].promotion_date).toLocaleDateString() 
+            'Last Promotion Date': emp.promotion_history && emp.promotion_history.length > 0
+                ? new Date(emp.promotion_history[0].promotion_date).toLocaleDateString()
                 : 'Never',
-            'Date Added': emp.created_at || emp.date_added ? 
+            'Date Added': emp.created_at || emp.date_added ?
                 new Date(emp.created_at || emp.date_added).toLocaleDateString() : 'N/A',
             'Recently Added': isRecent ? 'YES' : 'NO'
         };
@@ -1171,10 +1203,39 @@ function showExportSuccess(totalCount, recentCount, filename) {
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>`;
     $('#alert-container').html(alert);
-    
+
     setTimeout(() => {
         $('#alert-container').fadeOut(() => {
             $('#alert-container').html('').show();
         });
     }, 8000);
+}
+
+function showPromotionRefreshReminder(uploadedCount) {
+    const reminderDiv = document.createElement('div');
+    reminderDiv.className = 'alert alert-info alert-dismissible fade show mt-3';
+    reminderDiv.innerHTML = `
+        <i class="fas fa-info-circle me-2"></i>
+        <strong>Promotion Predictions Update Needed!</strong><br>
+        ${uploadedCount} new employee(s) imported. To see their promotion predictions:
+        <ol class="mb-2 mt-2">
+            <li>Navigate to the <strong>Promotion Predictions</strong> page</li>
+            <li>Click the <strong>Refresh Data</strong> button to reload predictions</li>
+        </ol>
+        <small class="text-muted">Note: The ML model will automatically calculate predictions for new employees.</small>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+
+    // Insert at top of main content area
+    const mainContent = document.querySelector('.col-md-9');
+    if (mainContent) {
+        mainContent.insertBefore(reminderDiv, mainContent.firstChild);
+    }
+}
+
+function startAutoRefresh(intervalMinutes = 5) {
+    setInterval(() => {
+        console.log('Auto-refreshing promotion predictions...');
+        loadPromotionPredictions();
+    }, intervalMinutes * 60 * 1000);
 }
