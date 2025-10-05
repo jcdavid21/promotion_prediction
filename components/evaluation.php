@@ -1,4 +1,4 @@
-<?php  if(session_status() == PHP_SESSION_NONE) {
+<?php if (session_status() == PHP_SESSION_NONE) {
     session_start();
 } ?>
 <!DOCTYPE html>
@@ -75,14 +75,15 @@
                                 <h5 class="card-title mb-0">Select Employee</h5>
                             </div>
                             <div class="card-body">
-                                <div class="mb-3">
-                                    <label for="employeeSelect" class="form-label">Employee Name</label>
-                                    <select class="form-select" id="employeeSelect">
-                                        <option value="">-- Select Employee --</option>
-                                        {% for employee in employees %}
-                                        <option value="{{ employee.emp_id }}">{{ employee.emp_name }}</option>
-                                        {% endfor %}
-                                    </select>
+                                <div class="mb-3 position-relative">
+                                    <label for="employeeSearch" class="form-label">Employee Name</label>
+                                    <input
+                                        type="text"
+                                        class="form-control"
+                                        id="employeeSearch"
+                                        placeholder="Type to search employees..."
+                                        autocomplete="off">
+                                    <div id="searchResults" class="list-group position-absolute w-100 shadow-sm" style="z-index: 1000; max-height: 300px; overflow-y: auto; display: none;"></div>
                                 </div>
                                 <div id="employeeInfo" class="mt-3 d-none">
                                     <div class="d-flex align-items-center mb-3">
@@ -452,20 +453,65 @@
         let ratingChart;
         let currentEmpId = null;
         let eval_id = null;
+        let allEmployees = [];
 
         $(document).ready(function() {
             initRatingChart();
             loadEmployees();
-            $('#employeeSelect').change(function() {
-                const empId = $(this).val();
-                if (empId) {
-                    currentEmpId = empId;
-                    
-                    loadEmployeeData(empId);
+            // Employee search functionality
+            $('#employeeSearch').on('input', function() {
+                const searchTerm = $(this).val().toLowerCase().trim();
+
+                if (searchTerm.length === 0) {
+                    $('#searchResults').hide().empty();
+                    return;
+                }
+
+                // Filter employees based on search term
+                const filteredEmployees = allEmployees.filter(emp =>
+                    emp.emp_name.toLowerCase().includes(searchTerm)
+                );
+
+                // Display search results
+                if (filteredEmployees.length > 0) {
+                    let html = '';
+                    filteredEmployees.forEach(emp => {
+                        html += `
+                <a href="#" class="list-group-item list-group-item-action employee-item" data-emp-id="${emp.emp_id}">
+                    <div class="d-flex w-100 justify-content-between">
+                        <h6 class="mb-1">${emp.emp_name}</h6>
+                    </div>
+                    <small class="text-muted">ID: ${emp.emp_id}</small>
+                </a>
+            `;
+                    });
+                    $('#searchResults').html(html).show();
                 } else {
-                    currentEmpId = null;
-                    $('#employeeInfo').addClass('d-none');
-                    resetForms();
+                    $('#searchResults').html(`
+            <div class="list-group-item text-muted">
+                No employees found
+            </div>
+        `).show();
+                }
+            });
+
+            // Handle employee selection from search results
+            $(document).on('click', '.employee-item', function(e) {
+                e.preventDefault();
+                const empId = $(this).data('emp-id');
+                const empName = $(this).find('h6').text();
+
+                $('#employeeSearch').val(empName);
+                $('#searchResults').hide().empty();
+
+                currentEmpId = empId;
+                loadEmployeeData(empId);
+            });
+
+            // Hide search results when clicking outside
+            $(document).on('click', function(e) {
+                if (!$(e.target).closest('#employeeSearch, #searchResults').length) {
+                    $('#searchResults').hide();
                 }
             });
 
@@ -558,19 +604,8 @@
                 method: 'GET',
                 success: function(response) {
                     if (response.success) {
-                        const select = $('#employeeSelect');
-                        select.empty();
-                        select.append($('<option>', {
-                            value: '',
-                            text: 'Select an employee'
-                        }));
-
-                        response.employees.forEach(employee => {
-                            select.append($('<option>', {
-                                value: employee.emp_id,
-                                text: employee.emp_name
-                            }));
-                        });
+                        // Store employees in global variable for search
+                        allEmployees = response.employees;
                     } else {
                         alert('Failed to load employees: ' + response.error);
                     }

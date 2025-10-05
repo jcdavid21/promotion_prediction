@@ -1595,6 +1595,259 @@ def get_overall_rating(score):
     return result['rating'] if result else 1
 
 
+@app.route('/api/employees/recent', methods=['GET'])
+def get_recent_employees():
+    try:
+        ids = request.args.get('ids', '')
+        if not ids:
+            return jsonify([])
+        
+        id_list = [int(id.strip()) for id in ids.split(',') if id.strip().isdigit()]
+        
+        if not id_list:
+            return jsonify([])
+        
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor(dictionary=True)
+        
+        placeholders = ','.join(['%s'] * len(id_list))
+        query = f"""
+        SELECT e.*, d.dept_name, p.position_name 
+        FROM tbl_employee_details e
+        LEFT JOIN tbl_department d ON e.department = d.dept_id
+        LEFT JOIN tbl_positions p ON e.position = p.position_id
+        WHERE e.emp_id IN ({placeholders}) AND e.active_status = 1
+        ORDER BY e.emp_id DESC
+        """
+        
+        cursor.execute(query, id_list)
+        employees = cursor.fetchall()
+        
+        cursor.close()
+        conn.close()
+        
+        return jsonify(employees)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+def safe_get(row, key, default=''):
+    """Safely get value from CSV row, handling empty/nan values"""
+    value = row.get(key, default)
+    if value is None or str(value).strip().lower() in ['', 'nan', 'none', 'null']:
+        return default
+    return str(value).strip()
+
+def safe_int(value, default=0):
+    """Safely convert to int"""
+    try:
+        if value is None or str(value).strip().lower() in ['', 'nan', 'none', 'null']:
+            return default
+        return int(float(str(value).strip()))
+    except (ValueError, TypeError):
+        return default
+
+def safe_float(value, default=None):
+    """Safely convert to float, returns None for empty values"""
+    try:
+        if value is None or str(value).strip().lower() in ['', 'nan', 'none', 'null']:
+            return default
+        return float(str(value).strip())
+    except (ValueError, TypeError):
+        return default
+
+@app.route('/api/import_employees', methods=['POST'])
+def import_employees():
+    """Import employees from CSV file"""
+    try:
+        if 'csv_file' not in request.files:
+            return jsonify({'success': False, 'error': 'No file provided'}), 400
+        
+        file = request.files['csv_file']
+        
+        if file.filename == '':
+            return jsonify({'success': False, 'error': 'No file selected'}), 400
+        
+        if not file.filename.endswith('.csv'):
+            return jsonify({'success': False, 'error': 'File must be a CSV'}), 400
+        
+        # Read CSV file using pandas to handle empty values properly
+        import pandas as pd
+        from io import BytesIO
+        
+        # Read CSV and replace NaN with empty strings
+        df = pd.read_csv(BytesIO(file.read()), na_values=['', 'nan', 'NaN', 'null', 'NULL'], keep_default_na=True)
+        df = df.fillna('')  # Replace all NaN with empty strings
+        
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor(dictionary=True)
+        
+        successful = 0
+        failed = 0
+        errors = []
+        uploaded_ids = []
+        total = len(df)
+        
+        # Get department and position mappings
+        cursor.execute("SELECT dept_id, dept_name FROM tbl_department")
+        dept_map = {row['dept_name']: row['dept_id'] for row in cursor.fetchall()}
+        
+        cursor.execute("SELECT position_id, position_name FROM tbl_positions")
+        pos_map = {row['position_name']: row['position_id'] for row in cursor.fetchall()}
+        
+        for index, row in df.iterrows():
+            row_num = index + 2  # CSV row number (accounting for header)
+            emp_name = ''
+            try:
+                # Extract employee basic info
+                emp_name = str(row.get('Employee Name', '')).strip()
+                age = str(row.get('Age', '')).strip()
+                gender = str(row.get('Gender', 'M')).strip() or 'M'
+                status = str(row.get('Status', '')).strip()
+                emp_status = str(row.get('Employment_Status', 'PROBI')).strip() or 'PROBI'
+                dept_name = str(row.get('Department', '')).strip()
+                pos_name = str(row.get('Position', '')).strip()
+                start_date = str(row.get('Start_Date', '')).strip()
+                regularization = str(row.get('Regularization', '')).strip()
+                tenure = str(row.get('Tenure', '')).strip()
+                
+                # Validate required fields
+                if not emp_name:
+                    errors.append(f"Row {row_num}: Employee name is required")
+                    failed += 1
+                    continue
+                
+                if not start_date:
+                    errors.append(f"Row {row_num}: Start date is required for {emp_name}")
+                    failed += 1
+                    continue
+                
+                # Map department and position
+                dept_id = None
+                if dept_name.isdigit():
+                    dept_id = int(dept_name)
+                elif dept_name in dept_map:
+                    dept_id = dept_map[dept_name]
+                
+                pos_id = None
+                if pos_name.isdigit():
+                    pos_id = int(pos_name)
+                elif pos_name in pos_map:
+                    pos_id = pos_map[pos_name]
+                
+                if not dept_id:
+                    errors.append(f"Row {row_num}: Invalid department '{dept_name}' for {emp_name}")
+                    failed += 1
+                    continue
+                
+                if not pos_id:
+                    errors.append(f"Row {row_num}: Invalid position '{pos_name}' for {emp_name}")
+                    failed += 1
+                    continue
+                
+                # Insert employee
+                emp_query = """
+                INSERT INTO tbl_employee_details (
+                    emp_name, age, gender, status, emp_status, department, position,
+                    start_date, regularization, tenure, active_status
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 1)
+                """
+                
+                cursor.execute(emp_query, (
+                    emp_name,
+                    safe_int(age, None),
+                    gender,
+                    status if status else None,
+                    emp_status,
+                    dept_id,
+                    pos_id,
+                    start_date if start_date else None,
+                    regularization if regularization else None,
+                    tenure if tenure else None
+                ))
+                
+                emp_id = cursor.lastrowid
+                uploaded_ids.append(emp_id)
+                
+                # Insert attendance data
+                attendance_query = """
+                INSERT INTO tbl_eval_attendance (
+                    emp_id, tardiness, tardy, comb_ab_hd, comb_uab_uhd, AB, UAB, HD, UHD
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """
+                
+                cursor.execute(attendance_query, (
+                    emp_id,
+                    safe_int(row.get('Tardiness', 0)),
+                    safe_int(row.get('Tardy Minutes', 0)),
+                    safe_int(row.get('Comb_AB_HD', 0)),
+                    safe_int(row.get('Comb_UAB_UHD', 0)),
+                    safe_int(row.get('AB', 0)),
+                    safe_int(row.get('UAB', 0)),
+                    safe_int(row.get('HD', 0)),
+                    safe_int(row.get('UHD', 0))
+                ))
+                
+                eval_id = cursor.lastrowid
+                
+                # Insert discipline data
+                discipline_query = """
+                INSERT INTO tbl_eval_discipline (
+                    eval_id, minor, grave, suspension
+                ) VALUES (%s, %s, %s, %s)
+                """
+                
+                cursor.execute(discipline_query, (
+                    eval_id,
+                    safe_int(row.get('Minor_Discipline', 0)),
+                    safe_int(row.get('Grave_Discipline', 0)),
+                    safe_int(row.get('Suspension', 0))
+                ))
+                
+                # Insert other metrics
+                others_query = """
+                INSERT INTO tbl_eval_others (
+                    eval_id, performance, manager_input, psa_input
+                ) VALUES (%s, %s, %s, %s)
+                """
+                
+                cursor.execute(others_query, (
+                    eval_id,
+                    safe_int(row.get('Performance_Evaluation', 0)),
+                    safe_float(row.get('Manager_Input')),
+                    safe_float(row.get('PSA_Input'))
+                ))
+                
+                successful += 1
+                
+            except Exception as e:
+                failed += 1
+                error_msg = str(e)
+                errors.append(f"Row {row_num} ({emp_name if emp_name else 'Unknown'}): {error_msg}")
+                app.logger.error(f"Error importing row {row_num}: {error_msg}")
+                continue
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'total': total,
+            'successful': successful,
+            'failed': failed,
+            'errors': errors[:10],
+            'uploaded_ids': uploaded_ids
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Error importing employees: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
+    
+
 
 if __name__ == '__main__':
-    app.run(debug=True, port=8800)
+    app.run(debug=True, port=8800, threaded=True, use_reloader=False)

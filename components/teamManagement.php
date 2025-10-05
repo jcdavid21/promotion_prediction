@@ -5,7 +5,7 @@ if (session_status() == PHP_SESSION_NONE) {
 
 // Check if user is logged in, redirect if not
 if (!isset($_SESSION["acc_id"])) {
-    header("Location: login.php");
+    header("Location: logout.php");
     exit;
 }
 
@@ -28,11 +28,11 @@ require_once "../backend/config.php";
 <body>
     <div class="container-fluid">
         <?php require "sidebar.php"; ?>
-        
+
         <?php
         // Check if user is admin (position_id = 1)
         $isAdmin = (isset($_SESSION["position_id"]) && $_SESSION["position_id"] == 1) ? true : false;
-        
+
         // Get admin PIN if user is admin
         $pin = "";
         if ($isAdmin) {
@@ -46,10 +46,10 @@ require_once "../backend/config.php";
             }
         }
         ?>
-        
+
         <!-- Hidden input to store admin status -->
         <input type="hidden" id="isAdmin" value="<?php echo $isAdmin ? '1' : '0'; ?>">
-        
+
         <?php
         // Display success or error messages if they exist
         if (isset($_SESSION['success_message'])) {
@@ -59,7 +59,7 @@ require_once "../backend/config.php";
             </div>';
             unset($_SESSION['success_message']);
         }
-        
+
         if (isset($_SESSION['error_message'])) {
             echo '<div class="alert alert-danger alert-dismissible fade show" role="alert">
                 ' . $_SESSION['error_message'] . '
@@ -75,6 +75,13 @@ require_once "../backend/config.php";
                 <div class="mb-4">
                     <button class="btn btn-primary w-100" id="addEmployeeBtn">
                         <i class="fas fa-plus me-2"></i>Add New Member
+                    </button>
+                </div>
+
+                <!-- Add this right after the addEmployeeBtn div -->
+                <div class="mb-3">
+                    <button class="btn btn-success w-100" id="importDataBtn">
+                        <i class="fas fa-file-import me-2"></i>Import Employee Data
                     </button>
                 </div>
 
@@ -109,6 +116,23 @@ require_once "../backend/config.php";
                             </button>
                         </div>
                     </div>
+                </div>
+
+                <!-- Recently Uploaded Employees Section -->
+                <div id="recentlyUploadedSection" style="display: none;" class="mb-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="mb-0">
+                            <i class="fas fa-clock me-2"></i>Recently Uploaded Employees
+                            <span class="badge bg-primary" id="recentUploadCount">0</span>
+                        </h5>
+                        <button class="btn btn-sm btn-outline-secondary" id="clearRecentBtn">
+                            <i class="fas fa-times me-1"></i>Clear
+                        </button>
+                    </div>
+                    <div id="recentlyUploadedCards" class="row row-cols-1 row-cols-md-2 row-cols-lg-2 g-3">
+                        <!-- Recently uploaded employee cards will be inserted here -->
+                    </div>
+                    <hr class="my-4">
                 </div>
 
                 <div id="orgChartContainer" class="org-chart">
@@ -296,6 +320,57 @@ require_once "../backend/config.php";
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                     <button type="button" class="btn btn-primary" id="verifyPinBtn">Verify</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import Data Modal -->
+    <div class="modal fade" id="importDataModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Import Employee Data</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="csvFileInput" class="form-label">Select CSV File</label>
+                        <input type="file" class="form-control" id="csvFileInput" accept=".csv">
+                        <div class="form-text">CSV should contain employee details, evaluation, and attendance data</div>
+                    </div>
+
+                    <!-- Preview Section -->
+                    <div id="csvPreviewSection" style="display: none;">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="mb-0">Preview (First 10 rows)</h6>
+                            <span class="badge bg-info" id="totalRowsCount">0 rows</span>
+                        </div>
+                        <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                            <table class="table table-sm table-bordered table-hover" id="csvPreviewTable">
+                                <thead class="table-light sticky-top">
+                                    <!-- Headers will be inserted here -->
+                                </thead>
+                                <tbody>
+                                    <!-- Data rows will be inserted here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div id="importProgress" style="display: none;">
+                        <div class="progress mb-2">
+                            <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+                        </div>
+                        <small class="text-muted" id="importStatus"></small>
+                    </div>
+                    <div id="importResults" style="display: none;" class="alert"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="uploadCsvBtn" style="display: none;">
+                        <i class="fas fa-upload me-1"></i>Upload Data
+                    </button>
                 </div>
             </div>
         </div>
