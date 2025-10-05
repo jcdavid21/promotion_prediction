@@ -36,22 +36,30 @@ const elements = {
     pinVerificationModal: new bootstrap.Modal(document.getElementById('pinVerificationModal')),
     pinInput: document.getElementById('pinInput'),
     pinError: document.getElementById('pinError'),
-    verifyPinBtn: document.getElementById('verifyPinBtn')
+    verifyPinBtn: document.getElementById('verifyPinBtn'),
+    importDataModal: new bootstrap.Modal(document.getElementById('importDataModal')),
+    csvFileInput: document.getElementById('csvFileInput'),
+    uploadCsvBtn: document.getElementById('uploadCsvBtn'),
+    recentlyUploadedSection: document.getElementById('recentlyUploadedSection'),
+    recentlyUploadedCards: document.getElementById('recentlyUploadedCards'),
+    recentUploadCount: document.getElementById('recentUploadCount'),
+    clearRecentBtn: document.getElementById('clearRecentBtn'),
+    csvPreviewSection: document.getElementById('csvPreviewSection'),
+    csvPreviewTable: document.getElementById('csvPreviewTable'),
+    totalRowsCount: document.getElementById('totalRowsCount'),
 };
 
 
-// Make sure to connect the Add New Member button to the prepareAddForm function
 document.addEventListener('DOMContentLoaded', () => {
-    // Get the user's position ID from the hidden input
     const isAdminElement = document.getElementById('isAdmin');
     userPositionId = isAdminElement ? (isAdminElement.value === '1' ? 1 : 2) : 2;
     
     loadEmployees();
     loadDepartments();
     loadPositions();
+    loadRecentlyUploaded(); // Add this line
     setupEventListeners();
     
-    // Add this line to connect the Add Employee button to the prepareAddForm function
     document.getElementById('addEmployeeBtn').addEventListener('click', prepareAddForm);
 });
 
@@ -65,12 +73,19 @@ function setupEventListeners() {
     elements.saveEmployeeBtn.addEventListener('click', saveEmployee);
     elements.editEmployeeBtn.addEventListener('click', editEmployee);
     elements.verifyPinBtn.addEventListener('click', verifyPinAndDelete);
-    
+
     // Clear PIN input and error message when modal is closed
     document.getElementById('pinVerificationModal').addEventListener('hidden.bs.modal', () => {
         elements.pinInput.value = '';
         elements.pinError.style.display = 'none';
     });
+
+    document.getElementById('importDataBtn').addEventListener('click', () => {
+        elements.importDataModal.show();
+    });
+    elements.uploadCsvBtn.addEventListener('click', handleCsvUpload);
+    elements.clearRecentBtn.addEventListener('click', clearRecentUploads);
+    elements.csvFileInput.addEventListener('change', handleFileSelect);
 }
 
 async function loadEmployees(page = 1) {
@@ -132,7 +147,7 @@ function renderOrgChart(employees) {
 
         card.querySelector('.view-detail').addEventListener('click', () => showEmployeeDetail(emp.emp_id));
         card.querySelector('.edit-employee').addEventListener('click', () => prepareEditForm(emp.emp_id));
-        
+
         // Only add delete event listener if the button exists (admin only)
         const deleteBtn = card.querySelector('.delete-employee');
         if (deleteBtn) {
@@ -322,40 +337,40 @@ async function loadPositions() {
 
 function prepareAddForm() {
     elements.formModalTitle.textContent = 'Add New Employee';
-    
+
     // First, remove any existing event listener
     if (startDateChangeListener) {
         elements.startDate.removeEventListener('change', startDateChangeListener);
         startDateChangeListener = null;
     }
-    
+
     // Reset the form
     elements.employeeForm.reset();
     elements.empId.value = '';
-    
+
     // Set default values
     elements.empStatus.value = 'PROBI'; // New employees typically start as probationary
     elements.empGender.value = 'M';
-    
+
     // Set today's date as default start date
     const today = new Date();
     const year = today.getFullYear();
     const month = String(today.getMonth() + 1).padStart(2, '0');
     const day = String(today.getDate()).padStart(2, '0');
     elements.startDate.value = `${year}-${month}-${day}`;
-    
+
     // Clear tenure field
     elements.empTenure.value = '';
-    
+
     // Add new event listener for start date changes
     startDateChangeListener = () => {
         elements.empTenure.value = calculateTenure(elements.startDate.value);
     };
     elements.startDate.addEventListener('change', startDateChangeListener);
-    
+
     // Initialize tenure based on today's date
     elements.empTenure.value = calculateTenure(elements.startDate.value);
-    
+
     elements.employeeFormModal.show();
 }
 
@@ -366,13 +381,13 @@ async function prepareEditForm(empId) {
         const employee = await response.json();
 
         elements.formModalTitle.textContent = 'Edit Employee';
-        
+
         // First, remove any existing event listener
         if (startDateChangeListener) {
             elements.startDate.removeEventListener('change', startDateChangeListener);
             startDateChangeListener = null;
         }
-        
+
         // Set form values
         elements.empId.value = employee.emp_id;
         elements.empName.value = employee.emp_name;
@@ -385,7 +400,7 @@ async function prepareEditForm(empId) {
         // Format dates for the input fields
         elements.startDate.value = formatDateForInput(employee.start_date);
         elements.regularizationDate.value = formatDateForInput(employee.regularization);
-        
+
         // Calculate and set tenure automatically
         elements.empTenure.value = calculateTenure(employee.start_date);
 
@@ -493,7 +508,7 @@ async function saveEmployee() {
 
     try {
         let url, method;
-        
+
         if (elements.empId.value) {
             // Update existing employee
             url = `${API_URL}/api/employees/${elements.empId.value}`;
@@ -529,40 +544,40 @@ async function saveEmployee() {
 
 function calculateTenure(startDate) {
     if (!startDate) return '';
-    
+
     try {
         const start = new Date(startDate);
         if (isNaN(start.getTime())) return '';
-        
+
         const now = new Date();
-        
+
         // Calculate total difference in months
         let months = (now.getFullYear() - start.getFullYear()) * 12;
         months -= start.getMonth();
         months += now.getMonth();
-        
+
         // Calculate years and remaining months
         const years = Math.floor(months / 12);
         const remainingMonths = months % 12;
-        
+
         // Calculate days
         const startDay = start.getDate();
         const nowDay = now.getDate();
         let days = nowDay - startDay;
-        
+
         // Adjust for negative days
         if (days < 0) {
             const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, startDay);
             days = Math.floor((now - lastMonth) / (1000 * 60 * 60 * 24));
             months--;
         }
-        
+
         // Build the tenure string
         const parts = [];
         if (years > 0) parts.push(`${years} Year${years !== 1 ? 's' : ''}`);
         if (remainingMonths > 0) parts.push(`${remainingMonths} Month${remainingMonths !== 1 ? 's' : ''}`);
         if (days > 0 || parts.length === 0) parts.push(`${days} Day${days !== 1 ? 's' : ''}`);
-        
+
         return parts.join(', ');
     } catch (e) {
         console.error('Error calculating tenure:', e);
@@ -576,9 +591,9 @@ function confirmDelete(empId) {
         alert('You do not have permission to delete employees.');
         return;
     }
-    
+
     currentEmployeeId = empId;
-    
+
     // Show PIN verification modal for admins
     elements.pinVerificationModal.show();
 }
@@ -590,43 +605,43 @@ function verifyPinAndDelete() {
         alert('You do not have permission to delete employees.');
         return;
     }
-    
+
     const pin = elements.pinInput.value.trim();
-    
+
     if (!pin) {
         elements.pinError.textContent = 'PIN is required!';
         elements.pinError.style.display = 'block';
         return;
     }
-    
+
     // Create a form to submit via POST
     const form = document.createElement('form');
     form.method = 'POST';
     form.action = 'verify_pin.php';
     form.style.display = 'none';
-    
+
     // Add PIN and employee ID inputs
     const pinInput = document.createElement('input');
     pinInput.type = 'hidden';
     pinInput.name = 'pin';
     pinInput.value = pin;
-    
+
     const empIdInput = document.createElement('input');
     empIdInput.type = 'hidden';
     empIdInput.name = 'emp_id';
     empIdInput.value = currentEmployeeId;
-    
+
     // Add a return URL input
     const returnUrlInput = document.createElement('input');
     returnUrlInput.type = 'hidden';
     returnUrlInput.name = 'return_url';
     returnUrlInput.value = window.location.href;
-    
+
     // Append inputs to form
     form.appendChild(pinInput);
     form.appendChild(empIdInput);
     form.appendChild(returnUrlInput);
-    
+
     // Append form to document and submit
     document.body.appendChild(form);
     form.submit();
@@ -641,7 +656,7 @@ async function deleteEmployee() {
             alert('You do not have permission to delete employees.');
             return;
         }
-        
+
         const response = await fetch(`${API_URL}/api/employees/${currentEmployeeId}`, {
             method: 'DELETE',
             headers: {
@@ -665,3 +680,249 @@ async function deleteEmployee() {
 
 // Expose functions to global scope for pagination buttons
 window.changePage = changePage;
+
+
+async function handleCsvUpload() {
+    const fileInput = elements.csvFileInput;
+    
+    if (!fileInput.files.length) {
+        alert('Please select a CSV file');
+        return;
+    }
+
+    const file = fileInput.files[0];
+    const formData = new FormData();
+    formData.append('csv_file', file);
+
+    try {
+        document.getElementById('importProgress').style.display = 'block';
+        document.getElementById('importStatus').textContent = 'Uploading and processing...';
+        elements.uploadCsvBtn.disabled = true;
+
+        const response = await fetch(`${API_URL}/api/import_employees`, {
+            method: 'POST',
+            body: formData
+        });
+
+        const result = await response.json();
+
+        document.getElementById('importProgress').style.display = 'none';
+        const resultsDiv = document.getElementById('importResults');
+        resultsDiv.style.display = 'block';
+
+        if (result.success) {
+            resultsDiv.className = 'alert alert-success';
+            resultsDiv.innerHTML = `
+                <strong>Import Successful!</strong><br>
+                Total processed: ${result.total}<br>
+                Successful: ${result.successful}<br>
+                Failed: ${result.failed}<br>
+                ${result.errors.length > 0 ? '<br><strong>Errors:</strong><br>' + result.errors.join('<br>') : ''}
+            `;
+            
+            if (result.uploaded_ids && result.uploaded_ids.length > 0) {
+                localStorage.setItem('recentlyUploadedIds', JSON.stringify(result.uploaded_ids));
+            }
+            
+            setTimeout(() => {
+                elements.importDataModal.hide();
+                loadEmployees(currentPage);
+                loadRecentlyUploaded();
+                resetImportModal(); // Add this line
+            }, 3000);
+        } else {
+            resultsDiv.className = 'alert alert-danger';
+            resultsDiv.textContent = `Import failed: ${result.error}`;
+        }
+    } catch (error) {
+        document.getElementById('importProgress').style.display = 'none';
+        const resultsDiv = document.getElementById('importResults');
+        resultsDiv.style.display = 'block';
+        resultsDiv.className = 'alert alert-danger';
+        resultsDiv.textContent = `Error: ${error.message}`;
+    } finally {
+        elements.uploadCsvBtn.disabled = false;
+    }
+}
+
+function resetImportModal() {
+    elements.csvFileInput.value = '';
+    elements.csvPreviewSection.style.display = 'none';
+    elements.uploadCsvBtn.style.display = 'none';
+    document.getElementById('importResults').style.display = 'none';
+}
+
+
+async function loadRecentlyUploaded() {
+    const recentIds = localStorage.getItem('recentlyUploadedIds');
+    
+    if (!recentIds) {
+        elements.recentlyUploadedSection.style.display = 'none';
+        return;
+    }
+    
+    const ids = JSON.parse(recentIds);
+    
+    if (ids.length === 0) {
+        elements.recentlyUploadedSection.style.display = 'none';
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_URL}/api/employees/recent?ids=${ids.join(',')}`);
+        const employees = await response.json();
+        
+        if (employees.length === 0) {
+            elements.recentlyUploadedSection.style.display = 'none';
+            return;
+        }
+        
+        elements.recentlyUploadedSection.style.display = 'block';
+        elements.recentUploadCount.textContent = employees.length;
+        elements.recentlyUploadedCards.innerHTML = '';
+        
+        employees.forEach(emp => {
+            const card = createRecentEmployeeCard(emp);
+            elements.recentlyUploadedCards.appendChild(card);
+        });
+        
+    } catch (error) {
+        console.error('Error loading recently uploaded employees:', error);
+    }
+}
+
+function createRecentEmployeeCard(emp) {
+    const col = document.createElement('div');
+    col.className = 'col';
+    
+    const statusClass = getStatusClass(emp.emp_status);
+    const tenure = calculateTenure(emp.start_date);
+    
+    col.innerHTML = `
+        <div class="card border-success shadow-sm">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <h6 class="card-title mb-0">${emp.emp_name}</h6>
+                    <span class="badge bg-success">NEW</span>
+                </div>
+                <div class="mb-2">
+                    <span class="department-badge rounded-pill">${emp.dept_name}</span>
+                    <small class="text-muted ms-2">${emp.position_name}</small>
+                </div>
+                <div class="d-flex gap-2 mb-3">
+                    <span class="employee-status ${statusClass} rounded-pill">${emp.emp_status}</span>
+                    <small class="text-muted">${tenure}</small>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-sm btn-outline-primary flex-fill view-detail" data-id="${emp.emp_id}">
+                        <i class="fas fa-eye me-1"></i>View
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary flex-fill edit-employee" data-id="${emp.emp_id}">
+                        <i class="fas fa-edit me-1"></i>Edit
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    col.querySelector('.view-detail').addEventListener('click', () => showEmployeeDetail(emp.emp_id));
+    col.querySelector('.edit-employee').addEventListener('click', () => prepareEditForm(emp.emp_id));
+    
+    return col;
+}
+
+function clearRecentUploads() {
+    if (confirm('Clear recently uploaded employees from this view?')) {
+        localStorage.removeItem('recentlyUploadedIds');
+        elements.recentlyUploadedSection.style.display = 'none';
+    }
+}
+
+async function handleFileSelect(event) {
+    const file = event.target.files[0];
+    
+    if (!file) {
+        elements.csvPreviewSection.style.display = 'none';
+        elements.uploadCsvBtn.style.display = 'none';
+        return;
+    }
+    
+    if (!file.name.endsWith('.csv')) {
+        alert('Please select a CSV file');
+        event.target.value = '';
+        return;
+    }
+    
+    try {
+        const text = await file.text();
+        const lines = text.split('\n').filter(line => line.trim());
+        
+        if (lines.length < 2) {
+            alert('CSV file appears to be empty or invalid');
+            return;
+        }
+        
+        // Parse CSV
+        const headers = parseCSVLine(lines[0]);
+        const rows = [];
+        
+        for (let i = 1; i < Math.min(lines.length, 11); i++) { // Preview first 10 rows
+            const row = parseCSVLine(lines[i]);
+            if (row.length === headers.length) {
+                rows.push(row);
+            }
+        }
+        
+        displayCSVPreview(headers, rows, lines.length - 1);
+        elements.csvPreviewSection.style.display = 'block';
+        elements.uploadCsvBtn.style.display = 'inline-block';
+        
+    } catch (error) {
+        alert('Error reading CSV file: ' + error.message);
+        event.target.value = '';
+    }
+}
+
+function parseCSVLine(line) {
+    const result = [];
+    let current = '';
+    let inQuotes = false;
+    
+    for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        
+        if (char === '"') {
+            inQuotes = !inQuotes;
+        } else if (char === ',' && !inQuotes) {
+            result.push(current.trim());
+            current = '';
+        } else {
+            current += char;
+        }
+    }
+    
+    result.push(current.trim());
+    return result;
+}
+
+function displayCSVPreview(headers, rows, totalRows) {
+    elements.totalRowsCount.textContent = `${totalRows} rows`;
+    
+    // Create table headers
+    const thead = elements.csvPreviewTable.querySelector('thead');
+    thead.innerHTML = `
+        <tr>
+            <th>#</th>
+            ${headers.map(header => `<th>${header}</th>`).join('')}
+        </tr>
+    `;
+    
+    // Create table rows
+    const tbody = elements.csvPreviewTable.querySelector('tbody');
+    tbody.innerHTML = rows.map((row, index) => `
+        <tr>
+            <td class="text-muted">${index + 1}</td>
+            ${row.map(cell => `<td>${cell || '<span class="text-muted">-</span>'}</td>`).join('')}
+        </tr>
+    `).join('');
+}

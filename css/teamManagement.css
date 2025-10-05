@@ -1,7 +1,7 @@
 /* Base Styles */
 .org-chart {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
     gap: 1.5rem;
     padding: 20px;
 }
@@ -187,3 +187,27 @@
     background-color: #f8f9fa;
     cursor: not-allowed;
 }   
+
+#csvPreviewTable {
+    font-size: 0.875rem;
+}
+
+#csvPreviewTable th {
+    background-color: #f8f9fa;
+    font-weight: 600;
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+#csvPreviewTable td {
+    white-space: nowrap;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#csvPreviewTable tbody tr:hover {
+    background-color: #f8f9fa;
+}
